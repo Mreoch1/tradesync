@@ -15,38 +15,45 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get('error')
   const errorDescription = searchParams.get('error_description')
 
-  // Extract the actual tunnel URL (ngrok or Cloudflare) from environment or request headers
-  // ngrok/Cloudflare Tunnel sets the Host header to the tunnel domain
-  let tunnelUrl = process.env.YAHOO_REDIRECT_URI 
+  // Extract the actual URL from environment or request headers
+  // For Netlify production, use the environment variable
+  // For local dev (ngrok/Cloudflare), use the request origin
+  let baseUrl = process.env.YAHOO_REDIRECT_URI 
     ? process.env.YAHOO_REDIRECT_URI.replace('/api/auth/yahoo/callback', '')
     : null
   
   // If not in env, try to get from Host header (ngrok/Cloudflare Tunnel sets this)
-  if (!tunnelUrl) {
+  if (!baseUrl) {
     const host = request.headers.get('host') || request.headers.get('x-forwarded-host')
     if (host && (host.includes('ngrok') || host.includes('trycloudflare.com'))) {
-      tunnelUrl = `https://${host}`
+      baseUrl = `https://${host}`
     } else {
-      // Fallback to request origin (should be tunnel URL when proxied)
-      tunnelUrl = request.nextUrl.origin
+      // Fallback to request origin (should be Netlify URL in production)
+      baseUrl = request.nextUrl.origin
     }
   }
   
-  console.log('Callback - Tunnel URL:', tunnelUrl)
+  // Ensure no trailing slash
+  baseUrl = baseUrl.replace(/\/$/, '')
+  
+  console.log('Callback - Base URL:', baseUrl)
   console.log('Callback - Request origin:', request.nextUrl.origin)
   console.log('Callback - Host header:', request.headers.get('host'))
+  console.log('Callback - YAHOO_REDIRECT_URI env:', process.env.YAHOO_REDIRECT_URI)
 
   // Handle OAuth errors
   if (error) {
     const errorMsg = errorDescription || error
-    const redirectUrl = new URL('/', tunnelUrl)
+    console.error('❌ OAuth error from Yahoo:', error, errorDescription)
+    const redirectUrl = new URL('/', baseUrl)
     redirectUrl.searchParams.set('yahoo_error', errorMsg)
     return NextResponse.redirect(redirectUrl.toString())
   }
 
   // Validate authorization code
   if (!code) {
-    const redirectUrl = new URL('/', tunnelUrl)
+    console.error('❌ No authorization code in callback')
+    const redirectUrl = new URL('/', baseUrl)
     redirectUrl.searchParams.set('yahoo_error', 'No authorization code provided')
     return NextResponse.redirect(redirectUrl.toString())
   }
@@ -55,15 +62,20 @@ export async function GET(request: NextRequest) {
   const clientId = process.env.YAHOO_CLIENT_ID
   const clientSecret = process.env.YAHOO_CLIENT_SECRET
   
-  // Build redirect URI for token exchange - MUST match exactly what was sent in authorization request
-  // Use the tunnel URL we already extracted above
-  const redirectUri = `${tunnelUrl}/api/auth/yahoo/callback`
+  console.log('🔍 Token exchange - Client ID:', clientId ? `${clientId.substring(0, 20)}...` : 'NOT SET')
+  console.log('🔍 Token exchange - Client Secret:', clientSecret ? 'SET' : 'NOT SET')
   
-  console.log('Token exchange - Tunnel URL:', tunnelUrl)
-  console.log('Token exchange - Redirect URI:', redirectUri)
+  // Build redirect URI for token exchange - MUST match exactly what was sent in authorization request
+  // Use the base URL we already extracted above
+  const redirectUri = `${baseUrl}/api/auth/yahoo/callback`
+  
+  console.log('🔍 Token exchange - Base URL:', baseUrl)
+  console.log('🔍 Token exchange - Redirect URI:', redirectUri)
+  console.log('🔍 Token exchange - Expected (from env):', process.env.YAHOO_REDIRECT_URI)
 
   if (!clientId || !clientSecret) {
-    const redirectUrl = new URL('/', tunnelUrl)
+    console.error('❌ Missing OAuth credentials')
+    const redirectUrl = new URL('/', baseUrl)
     redirectUrl.searchParams.set('yahoo_error', 'Yahoo OAuth credentials not configured')
     return NextResponse.redirect(redirectUrl.toString())
   }
