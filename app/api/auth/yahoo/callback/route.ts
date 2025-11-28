@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     // Redirect back to app with tokens in query params (hash doesn't work with server redirects)
     // The frontend will extract tokens from query params and store them
     // Use tunnel URL to ensure we redirect to HTTPS, not localhost
-    const redirectUrl = new URL('/', tunnelUrl)
+    const redirectUrl = new URL('/', baseUrl)
     // Store tokens temporarily - encode as base64 to avoid URL length issues
     const tokensBase64 = Buffer.from(JSON.stringify(tokens)).toString('base64')
     redirectUrl.searchParams.set('yahoo_tokens', tokensBase64)
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(redirectUrl.toString())
   } catch (error: any) {
     console.error('OAuth token exchange error:', error)
-    const redirectUrl = new URL('/', tunnelUrl)
+    const redirectUrl = new URL('/', baseUrl)
     redirectUrl.searchParams.set('yahoo_error', error.message || 'Failed to exchange authorization code')
     return NextResponse.redirect(redirectUrl.toString())
   }
