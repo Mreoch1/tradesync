@@ -1327,9 +1327,18 @@ export function getAuthorizationUrl(
   console.log('🔍 getAuthorizationUrl - Client ID length:', trimmedClientId.length)
   console.log('🔍 getAuthorizationUrl - Redirect URI:', trimmedRedirectUri)
   
+  // Ensure redirect URI has no trailing slashes and matches exactly
+  const cleanRedirectUri = trimmedRedirectUri.replace(/\/+$/, '')
+  
+  // Validate redirect URI format
+  const expectedRedirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
+  if (cleanRedirectUri !== expectedRedirectUri) {
+    console.warn(`⚠️ Redirect URI mismatch! Expected: ${expectedRedirectUri}, Got: ${cleanRedirectUri}`)
+  }
+  
   const params = new URLSearchParams({
     client_id: trimmedClientId,
-    redirect_uri: trimmedRedirectUri,
+    redirect_uri: cleanRedirectUri,
     response_type: 'code',
     language: 'en-us',
     ...(state && { state }),
@@ -1337,6 +1346,9 @@ export function getAuthorizationUrl(
   
   const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?${params.toString()}`
   console.log('🔍 getAuthorizationUrl - Full URL (first 200 chars):', authUrl.substring(0, 200))
+  console.log('🔍 getAuthorizationUrl - Redirect URI being sent:', cleanRedirectUri)
+  console.log('🔍 getAuthorizationUrl - Expected Redirect URI:', expectedRedirectUri)
+  console.log('🔍 getAuthorizationUrl - Match:', cleanRedirectUri === expectedRedirectUri)
   
   return authUrl
 }

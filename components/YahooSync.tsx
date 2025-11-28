@@ -159,7 +159,10 @@ Note: NEXT_PUBLIC_ variables are embedded at build time, so a rebuild is require
     
     // Log redirect URI for debugging (don't block - let Yahoo validate it)
     console.log('🔍 OAuth Redirect URI:', redirectUri)
+    console.log('🔍 Expected Redirect URI:', 'https://aitradr.netlify.app/api/auth/yahoo/callback')
+    console.log('🔍 Redirect URI Match:', redirectUri === 'https://aitradr.netlify.app/api/auth/yahoo/callback')
     console.log('🔍 Current window location:', window.location.href)
+    console.log('🔍 Window origin:', window.location.origin)
     
     // Note: Yahoo will validate the redirect URI matches what's configured in their portal
     // We don't need to block here - if it doesn't match, Yahoo will return an error

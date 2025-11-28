@@ -67,11 +67,23 @@ export async function GET(request: NextRequest) {
   
   // Build redirect URI for token exchange - MUST match exactly what was sent in authorization request
   // Use the base URL we already extracted above
-  const redirectUri = `${baseUrl}/api/auth/yahoo/callback`
+  let redirectUri = `${baseUrl}/api/auth/yahoo/callback`
+  
+  // Ensure no trailing slashes (Yahoo is strict)
+  redirectUri = redirectUri.replace(/\/+$/, '')
+  
+  const expectedRedirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
   
   console.log('🔍 Token exchange - Base URL:', baseUrl)
   console.log('🔍 Token exchange - Redirect URI:', redirectUri)
+  console.log('🔍 Token exchange - Expected Redirect URI:', expectedRedirectUri)
+  console.log('🔍 Token exchange - Match:', redirectUri === expectedRedirectUri)
   console.log('🔍 Token exchange - Expected (from env):', process.env.YAHOO_REDIRECT_URI)
+  
+  // Warn if redirect URI doesn't match expected
+  if (redirectUri !== expectedRedirectUri) {
+    console.warn(`⚠️ Redirect URI mismatch in callback! Expected: ${expectedRedirectUri}, Got: ${redirectUri}`)
+  }
 
   if (!clientId || !clientSecret) {
     console.error('❌ Missing OAuth credentials')
