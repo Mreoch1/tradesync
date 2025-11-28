@@ -382,10 +382,41 @@ function parsePlayerStats(
       }
     }
   } else {
+    // Skater stats - use stat definitions if available, otherwise fallback to hardcoded mappings
+    const useStatDefinitions = Object.keys(statNameToIdCache).length > 0
+    
+    // Log skater stats with definitions if available
+    if (playerName && useStatDefinitions) {
+      const allSkaterStats = Object.keys(statsMap)
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .map(id => {
+          const statName = statDefinitionsCache[id] || 'unknown'
+          return `stat_id ${id} (${statName})=${statsMap[id]}`
+        })
+        .join(', ')
+      console.log(`🎯 SKATER WITH DEFINITIONS: ${playerName} | ${allSkaterStats}`)
+    } else if (playerName) {
+      const allSkaterStats = Object.keys(statsMap)
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .map(id => `stat_id ${id}=${statsMap[id]}`)
+        .join(', ')
+      console.log(`🎯 SKATER DEBUG: ${playerName} | ${allSkaterStats}`)
+    }
+    
+    // Helper function to find stat_id by name using stat definitions
+    const findStatIdByName = (statNames: string[]): string | undefined => {
+      if (!useStatDefinitions) return undefined
+      for (const name of statNames) {
+        const statId = statNameToIdCache[name.toLowerCase()]
+        if (statId && statsMap[statId] !== undefined) {
+          return statId
+        }
+      }
+      return undefined
+    }
+    
     // Skater stats (from Yahoo Fantasy Hockey 2025/2026)
-    // CRITICAL FIX: Based on Celebrini's correct stats vs what we're getting:
-    // App shows: G: 24, A: 14, SOG: 12, FW: 0, HIT: 0, BLK: 0
-    // Correct:    G: 14, A: 20, SOG: 70, FW: 181, HIT: 14, BLK: 16
+    // Use stat definitions to map by name first, then fallback to hardcoded stat_ids
     // 
     // Analysis of logs shows:
     // - stat_id 0 and 29 always match (both show same value)
@@ -429,80 +460,126 @@ function parsePlayerStats(
     // - stat_id 32 = FW (has values up to 49, Celebrini needs 181 - might need different stat_id or it's cumulative)
     // - Need to find HIT and BLK stat_ids
     
-    // Try stat_id 1 for Goals (matches Celebrini's correct Goals value of 14)
-    if (statsMap['1'] !== undefined) {
-      stats.goals = statsMap['1'] // Goals (G) - stat_id 1 has value 14 for Celebrini
+    // Goals (G) - use stat definitions first
+    const goalsStatId = findStatIdByName(['goals', 'g'])
+    if (goalsStatId) {
+      stats.goals = statsMap[goalsStatId]
     } else if (statsMap['0'] !== undefined) {
       stats.goals = statsMap['0'] // Fallback to stat_id 0
+    } else if (statsMap['1'] !== undefined) {
+      stats.goals = statsMap['1'] // Fallback to stat_id 1
     }
     
-    // Try stat_id 34 for Assists (has value 20 which matches Celebrini's Assists)
-    if (statsMap['34'] !== undefined) {
-      stats.hockeyAssists = statsMap['34'] // Assists (A) - stat_id 34 has value 20 for Celebrini
-    } else if (statsMap['0'] !== undefined) {
-      stats.hockeyAssists = statsMap['0'] // Fallback to stat_id 0
+    // Assists (A) - use stat definitions first
+    const assistsStatId = findStatIdByName(['assists', 'a'])
+    if (assistsStatId) {
+      stats.hockeyAssists = statsMap[assistsStatId]
     } else if (statsMap['1'] !== undefined) {
       stats.hockeyAssists = statsMap['1'] // Fallback to stat_id 1
+    } else if (statsMap['0'] !== undefined) {
+      stats.hockeyAssists = statsMap['0'] // Fallback to stat_id 0
     }
-    // Points = Goals + Assists (calculate from actual stats, don't trust Yahoo's stat_id 2)
+    
+    // Points (P) - calculate from G+A if available, otherwise use stat definitions
     if (stats.goals !== undefined && stats.hockeyAssists !== undefined) {
       stats.hockeyPoints = stats.goals + stats.hockeyAssists
-    } else if (statsMap['2'] !== undefined) {
-      // Fallback to Yahoo's value if we don't have both G and A
-      stats.hockeyPoints = statsMap['2']
+    } else {
+      const pointsStatId = findStatIdByName(['points', 'p'])
+      if (pointsStatId) {
+        stats.hockeyPoints = statsMap[pointsStatId]
+      } else if (statsMap['2'] !== undefined) {
+        stats.hockeyPoints = statsMap['2'] // Fallback to stat_id 2
+      }
     }
-    if (statsMap['3'] !== undefined) stats.plusMinus = statsMap['3'] // Plus/Minus (+/-)
-    if (statsMap['4'] !== undefined) stats.pim = statsMap['4'] // Penalty Minutes (PIM)
-    if (statsMap['5'] !== undefined) stats.ppp = statsMap['5'] // Power Play Points (PPP)
-    if (statsMap['6'] !== undefined) stats.shp = statsMap['6'] // Short Handed Points (SHP)
-    if (statsMap['7'] !== undefined) stats.gwg = statsMap['7'] // Game Winning Goals (GWG)
     
-    // CRITICAL: Stat IDs 8-11 may be wrong. Try alternative mappings based on actual API values
-    // Based on logs, stat_id 8 shows very low values (1-12) but SOG should be 70+ for Celebrini
-    // stat_id 31 shows values like 43, 24, 25, 42, 5, 1, 0, 22, 56, 62 - could be SOG?
-    // stat_id 32 shows values like 10, 5, 6, 14, 11, 43, 23, 24, 49, 1, 8 - could be FW?
-    // stat_id 33 shows very large values (12664, 25650, etc.) - likely time on ice in seconds
-    // stat_id 34 shows values like 19, 18, 20, 15, 23, 21, 22, 27, 20, 14 - could be HIT or BLK?
+    // Plus/Minus (+/-) - use stat definitions first
+    const plusMinusStatId = findStatIdByName(['plus/minus', 'plus minus', '+/-', 'plusminus'])
+    if (plusMinusStatId) {
+      stats.plusMinus = statsMap[plusMinusStatId]
+    } else if (statsMap['3'] !== undefined) {
+      stats.plusMinus = statsMap['3'] // Fallback to stat_id 3
+    }
     
-    // Try stat_id 31 for SOG (values seem reasonable for shots)
-    if (statsMap['31'] !== undefined) {
-      stats.sog = statsMap['31']
+    // Penalty Minutes (PIM) - use stat definitions first
+    const pimStatId = findStatIdByName(['penalty minutes', 'pim', 'penalties'])
+    if (pimStatId) {
+      stats.pim = statsMap[pimStatId]
+    } else if (statsMap['4'] !== undefined) {
+      stats.pim = statsMap['4'] // Fallback to stat_id 4
+    }
+    
+    // Power Play Points (PPP) - use stat definitions first
+    const pppStatId = findStatIdByName(['power play points', 'ppp', 'pp points'])
+    if (pppStatId) {
+      stats.ppp = statsMap[pppStatId]
+    } else if (statsMap['5'] !== undefined) {
+      stats.ppp = statsMap['5'] // Fallback to stat_id 5
+    }
+    
+    // Short Handed Points (SHP) - use stat definitions first
+    const shpStatId = findStatIdByName(['short handed points', 'shp', 'sh points'])
+    if (shpStatId) {
+      stats.shp = statsMap[shpStatId]
+    } else if (statsMap['6'] !== undefined) {
+      stats.shp = statsMap['6'] // Fallback to stat_id 6
+    }
+    
+    // Game Winning Goals (GWG) - use stat definitions first
+    const gwgStatId = findStatIdByName(['game winning goals', 'gwg', 'game winners'])
+    if (gwgStatId) {
+      stats.gwg = statsMap[gwgStatId]
+    } else if (statsMap['7'] !== undefined) {
+      stats.gwg = statsMap['7'] // Fallback to stat_id 7
+    }
+    
+    // Shots on Goal (SOG) - use stat definitions first
+    const sogStatId = findStatIdByName(['shots on goal', 'sog', 'shots', 'shots on net'])
+    if (sogStatId) {
+      stats.sog = statsMap[sogStatId]
     } else if (statsMap['8'] !== undefined) {
-      stats.sog = statsMap['8'] // Fallback to old mapping
+      stats.sog = statsMap['8'] // Fallback to stat_id 8
+    } else if (statsMap['31'] !== undefined) {
+      stats.sog = statsMap['31'] // Alternative fallback
     }
     
-    // Try stat_id 32 for FW (faceoff wins - values seem reasonable)
-    if (statsMap['32'] !== undefined) {
-      stats.fw = statsMap['32']
+    // Faceoff Wins (FW) - use stat definitions first
+    const fwStatId = findStatIdByName(['faceoff wins', 'fw', 'faceoffs won', 'face-offs won'])
+    if (fwStatId) {
+      stats.fw = statsMap[fwStatId]
     } else if (statsMap['9'] !== undefined) {
-      stats.fw = statsMap['9'] // Fallback to old mapping
+      stats.fw = statsMap['9'] // Fallback to stat_id 9
+    } else if (statsMap['32'] !== undefined) {
+      stats.fw = statsMap['32'] // Alternative fallback
     }
     
-    // HIT: Celebrini should have 14. Looking at logs, stat_id 34=14 appears (Matt Duchene)
-    // But stat_id 34 is also being used for Assists (value 20). This is a conflict.
-    // Maybe HIT is in a different stat_id? Or maybe we need to check which stat_id has value 14 for Celebrini specifically.
-    // For now, try stat_id 34 for HIT, but this might conflict with Assists mapping above
-    // TODO: Need Celebrini's actual log to verify which stat_id has HIT:14
-    if (statsMap['34'] !== undefined && stats.hockeyAssists === undefined) {
-      // Only use stat_id 34 for HIT if we didn't already use it for Assists
-      // Actually, this won't work - we need a different approach
-      // Let's check if stat_id 10 or another stat_id has HIT values
-    }
-    // Keep old mapping for now until we can verify
-    if (statsMap['10'] !== undefined) {
-      stats.hit = statsMap['10'] // HIT - keeping old mapping for now
+    // Hits (HIT) - use stat definitions first
+    const hitStatId = findStatIdByName(['hits', 'hit'])
+    if (hitStatId) {
+      stats.hit = statsMap[hitStatId]
+    } else if (statsMap['10'] !== undefined) {
+      stats.hit = statsMap['10'] // Fallback to stat_id 10
     }
     
-    // BLK: Celebrini should have 16, but we're getting 0 from stat_id 11
-    // Need to find which stat_id has value 16 for Celebrini
-    // For now, keep stat_id 11 but it's clearly wrong
-    if (statsMap['11'] !== undefined) {
-      stats.blk = statsMap['11'] // BLK - keeping old mapping but it's wrong
+    // Blocks (BLK) - use stat definitions first
+    const blkStatId = findStatIdByName(['blocks', 'blk', 'blocked shots'])
+    if (blkStatId) {
+      stats.blk = statsMap[blkStatId]
+    } else if (statsMap['11'] !== undefined) {
+      stats.blk = statsMap['11'] // Fallback to stat_id 11
     }
     
-    // Log if we're using alternative mappings
-    if (statsMap['31'] !== undefined || statsMap['32'] !== undefined || statsMap['34'] !== undefined) {
-      console.log(`📊 Using alternative stat_id mappings: SOG=${statsMap['31'] || statsMap['8']}, FW=${statsMap['32'] || statsMap['9']}, HIT=${statsMap['34'] || statsMap['10']}`)
+    // Log what we mapped for debugging
+    if (playerName) {
+      const mappedStats = []
+      if (stats.goals !== undefined) mappedStats.push(`G=${stats.goals}`)
+      if (stats.hockeyAssists !== undefined) mappedStats.push(`A=${stats.hockeyAssists}`)
+      if (stats.hockeyPoints !== undefined) mappedStats.push(`P=${stats.hockeyPoints}`)
+      if (stats.plusMinus !== undefined) mappedStats.push(`+/-=${stats.plusMinus}`)
+      if (stats.sog !== undefined) mappedStats.push(`SOG=${stats.sog}`)
+      if (stats.fw !== undefined) mappedStats.push(`FW=${stats.fw}`)
+      if (stats.hit !== undefined) mappedStats.push(`HIT=${stats.hit}`)
+      if (stats.blk !== undefined) mappedStats.push(`BLK=${stats.blk}`)
+      console.log(`✅ SKATER MAPPED: ${playerName} | ${mappedStats.join(', ')}`)
     }
   }
 
