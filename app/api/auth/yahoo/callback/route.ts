@@ -49,6 +49,16 @@ export async function GET(request: NextRequest) {
   console.log('Callback - Request origin:', request.nextUrl.origin)
   console.log('Callback - Host header:', request.headers.get('host'))
   console.log('Callback - YAHOO_REDIRECT_URI env:', process.env.YAHOO_REDIRECT_URI)
+  console.log('Callback - Full request URL:', request.url)
+  console.log('Callback - Search params string:', request.nextUrl.search)
+  
+  // Log ALL query parameters for debugging
+  const allParams: Record<string, string> = {}
+  searchParams.forEach((value, key) => {
+    allParams[key] = value
+  })
+  console.log('🔍 Callback - All query parameters:', JSON.stringify(allParams, null, 2))
+  console.log('🔍 Callback - Query param keys:', Object.keys(allParams).join(', '))
 
   // Handle OAuth errors
   if (error) {
@@ -63,17 +73,41 @@ export async function GET(request: NextRequest) {
   if (!code) {
     console.error('❌ No authorization code in callback')
     console.error('❌ Callback URL:', request.nextUrl.toString())
-    console.error('❌ All query params:', Object.keys(allParams).join(', '))
+    console.error('❌ All query params:', Object.keys(allParams).length > 0 ? Object.keys(allParams).join(', ') : 'NONE')
+    console.error('❌ Query params object:', JSON.stringify(allParams))
     console.error('❌ Has error param:', !!error)
     console.error('❌ Error value:', error)
     console.error('❌ Error description:', errorDescription)
+    console.error('❌ Full request URL:', request.url)
+    console.error('❌ Search string:', request.nextUrl.search)
+    
+    // Check if this is a redirect from Yahoo without parameters (redirect URI mismatch)
+    const hasAnyParams = Object.keys(allParams).length > 0
+    const isFromYahoo = request.headers.get('referer')?.includes('yahoo.com') || 
+                        request.headers.get('user-agent')?.includes('Yahoo')
+    
+    console.error('❌ Has any query params:', hasAnyParams)
+    console.error('❌ Referer header:', request.headers.get('referer'))
+    console.error('❌ User-Agent:', request.headers.get('user-agent'))
     
     // Provide more helpful error message
     let errorMsg = 'No authorization code provided'
     if (error) {
       errorMsg = `Yahoo OAuth error: ${errorDescription || error}`
-    } else if (Object.keys(allParams).length === 0) {
-      errorMsg = 'Yahoo redirected back but provided no parameters. This usually means the redirect URI does not match exactly. Verify in Yahoo Developer Portal that the redirect URI is exactly: https://aitradr.netlify.app/api/auth/yahoo/callback'
+    } else if (!hasAnyParams) {
+      errorMsg = `Yahoo redirected back but provided no parameters. This usually means the redirect URI does not match exactly.
+
+The redirect URI in your OAuth request must match EXACTLY what's configured in Yahoo Developer Portal.
+
+Expected: https://aitradr.netlify.app/api/auth/yahoo/callback
+
+Please verify:
+1. In Yahoo Developer Portal, the Redirect URI is exactly: https://aitradr.netlify.app/api/auth/yahoo/callback
+2. No trailing slashes
+3. Click "Update" to save changes
+4. Wait a few minutes for changes to propagate`
+    } else {
+      errorMsg = `No authorization code in callback. Received parameters: ${Object.keys(allParams).join(', ')}`
     }
     
     const redirectUrl = new URL('/', baseUrl)
