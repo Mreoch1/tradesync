@@ -367,11 +367,26 @@ Visit /diagnostics to see detailed configuration.`
           }))
         } else {
           // Validate teams have data before replacing existing teams
+          // Include teams that have either players OR a valid record (not 0-0-0)
           const teamsWithData = data.teams.filter((team: Team) => {
             const hasPlayers = team.players && team.players.length > 0
             const hasRecord = team.record && team.record !== '0-0-0'
             return hasPlayers || hasRecord
           })
+
+          const filteredOut = data.teams.length - teamsWithData.length
+          
+          if (filteredOut > 0) {
+            const filteredTeamNames = data.teams
+              .filter((team: Team) => {
+                const hasPlayers = team.players && team.players.length > 0
+                const hasRecord = team.record && team.record !== '0-0-0'
+                return !(hasPlayers || hasRecord)
+              })
+              .map((team: Team) => team.name)
+            console.warn(`⚠️ Filtered out ${filteredOut} team(s) with no data: ${filteredTeamNames.join(', ')}`)
+            console.warn(`   These teams have 0 players and 0-0-0 record. They may have failed to fetch roster.`)
+          }
 
           if (teamsWithData.length === 0) {
             console.warn('⚠️ Sync returned teams but all have empty data (0 players, 0-0-0 records). Keeping existing data.')
@@ -386,6 +401,8 @@ Visit /diagnostics to see detailed configuration.`
               }
             }))
           } else {
+            console.log(`✅ Sync returned ${data.teams.length} teams, ${teamsWithData.length} with valid data, ${filteredOut} filtered out`)
+            
             // Only clear existing teams if we have valid data to replace them with
             if (typeof window !== 'undefined') {
               const { teamManager } = await import('@/lib/teamManager')
