@@ -1257,28 +1257,39 @@ export async function parseYahooTeams(
   getRosterFn: (teamKey: string) => Promise<YahooPlayer[]>
 ): Promise<Team[]> {
   const teams: Team[] = []
+  const skippedTeams: string[] = []
+  const failedTeams: string[] = []
 
-  for (const yahooTeam of yahooTeams) {
+  console.log(`\n${'='.repeat(80)}`)
+  console.log(`📊 Starting to parse ${yahooTeams.length} teams`)
+  console.log(`${'='.repeat(80)}\n`)
+
+  for (let i = 0; i < yahooTeams.length; i++) {
+    const yahooTeam = yahooTeams[i]
+    const teamNum = i + 1
+    
     try {
       // Validate team_key exists
       if (!yahooTeam.team_key) {
-        console.error(`❌ Skipping team ${yahooTeam.name} - missing team_key`, yahooTeam)
+        console.error(`❌ [${teamNum}/${yahooTeams.length}] Skipping team ${yahooTeam.name} - missing team_key`)
+        skippedTeams.push(yahooTeam.name || 'Unknown')
         continue
       }
       
-      console.log(`📊 Fetching roster for team: ${yahooTeam.name} (key: ${yahooTeam.team_key})`)
+      console.log(`\n📊 [${teamNum}/${yahooTeams.length}] Processing team: ${yahooTeam.name} (key: ${yahooTeam.team_key})`)
       
       // getRosterFn should already include stats since we fetch them in getTeamRoster
       let roster: YahooPlayer[]
       try {
         roster = await getRosterFn(yahooTeam.team_key)
-        console.log(`✅ Fetched roster for ${yahooTeam.name}: ${roster.length} players`)
+        console.log(`✅ [${teamNum}/${yahooTeams.length}] Fetched roster for ${yahooTeam.name}: ${roster.length} players`)
       } catch (rosterError: any) {
-        console.error(`❌ Failed to fetch roster for team ${yahooTeam.name} (key: ${yahooTeam.team_key}):`, rosterError)
+        console.error(`❌ [${teamNum}/${yahooTeams.length}] Failed to fetch roster for team ${yahooTeam.name} (key: ${yahooTeam.team_key}):`, rosterError)
         console.error(`   Error message:`, rosterError?.message)
         console.error(`   Error stack:`, rosterError?.stack)
         // Continue with empty roster rather than failing completely
         roster = []
+        failedTeams.push(`${yahooTeam.name} (roster fetch failed)`)
       }
       
       // Parse players - stats should already be attached from getRosterFn
@@ -1295,20 +1306,43 @@ export async function parseYahooTeams(
       const playersWithoutStats = players.length - playersWithStats
       
       teams.push(parseYahooTeam(yahooTeam, players))
-      console.log(`✅ Successfully parsed team ${yahooTeam.name} with ${players.length} players (${playersWithStats} with stats, ${playersWithoutStats} without stats)`)
+      console.log(`✅ [${teamNum}/${yahooTeams.length}] Successfully parsed team ${yahooTeam.name} with ${players.length} players (${playersWithStats} with stats, ${playersWithoutStats} without stats)`)
       
       if (playersWithoutStats > 0) {
         console.warn(`⚠️ Team ${yahooTeam.name} has ${playersWithoutStats} player(s) without stats - check logs above for reasons`)
       }
     } catch (error: any) {
-      console.error(`❌ Error parsing team ${yahooTeam.name} (key: ${yahooTeam.team_key}):`, error)
+      console.error(`❌ [${teamNum}/${yahooTeams.length}] Error parsing team ${yahooTeam.name} (key: ${yahooTeam.team_key}):`, error)
       console.error(`   Error message:`, error?.message)
       console.error(`   Error stack:`, error?.stack)
+      failedTeams.push(`${yahooTeam.name} (parsing error: ${error?.message || 'Unknown'})`)
       // Continue with other teams even if one fails, but log the error clearly
     }
   }
   
-  console.log(`📊 parseYahooTeams: Successfully parsed ${teams.length} out of ${yahooTeams.length} teams`)
+  console.log(`\n${'='.repeat(80)}`)
+  console.log(`📊 parseYahooTeams Summary:`)
+  console.log(`   ✅ Successfully parsed: ${teams.length} teams`)
+  console.log(`   ❌ Failed: ${failedTeams.length} teams`)
+  console.log(`   ⏭️  Skipped: ${skippedTeams.length} teams`)
+  console.log(`   📋 Total input: ${yahooTeams.length} teams`)
+  
+  if (failedTeams.length > 0) {
+    console.log(`\n   Failed teams:`)
+    failedTeams.forEach(team => console.log(`     - ${team}`))
+  }
+  
+  if (skippedTeams.length > 0) {
+    console.log(`\n   Skipped teams:`)
+    skippedTeams.forEach(team => console.log(`     - ${team}`))
+  }
+  
+  if (teams.length < yahooTeams.length) {
+    console.log(`\n   ⚠️  WARNING: Only ${teams.length} out of ${yahooTeams.length} teams were successfully parsed!`)
+    console.log(`   Missing teams: ${yahooTeams.length - teams.length}`)
+  }
+  
+  console.log(`${'='.repeat(80)}\n`)
   
   if (teams.length === 0 && yahooTeams.length > 0) {
     console.error(`❌ CRITICAL: All ${yahooTeams.length} teams failed to parse!`)
