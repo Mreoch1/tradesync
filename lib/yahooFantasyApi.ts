@@ -1162,6 +1162,8 @@ export async function getTeamRoster(
           }
           
           // Parse stats response for this batch
+          // Import yahooParser module once for this batch
+          const yahooParser = await import('./yahooParser')
           
           Object.values(playersData).forEach((playerObj: any) => {
         if (!playerObj || typeof playerObj !== 'object') return
@@ -1328,15 +1330,55 @@ export async function getTeamRoster(
                 }
                 console.log(`✅ Found SEASON player_stats in object for ${playerKey}: coverage_type="${coverageType}", coverage_value=${coverageValue}, ${statsArray.length} stats`)
                 
-                // Log first few stat values for verification (helps catch wrong stat_id mappings)
+                // Log ALL stat values for verification (helps catch wrong stat_id mappings)
+                // This is critical for debugging stat_id mapping issues
                 if (Object.keys(statsByPlayerKey).length === 0) {
-                  const firstStats = statsArray.slice(0, 5).map(s => {
+                  const allStats = statsArray.map(s => {
                     const statId = s.stat_id || (s as any).stat?.stat_id
                     const statValue = s.value || (s as any).stat?.value
                     return `stat_id ${statId}=${statValue}`
                   }).join(', ')
-                  console.log(`📊 First 5 stat values from API: ${firstStats}`)
+                  console.log(`📊 ALL stat values from API (${statsArray.length} stats): ${allStats}`)
                   console.log(`📊 VERIFY: Compare these with Yahoo website to ensure stat_id mappings are correct`)
+                  
+                  // Also log with stat definitions if available
+                  if (yahooParser.hasStatDefinitions()) {
+                    const statDefs = yahooParser.getStatDefinitionsCache()
+                    const statsWithNames = statsArray.map(s => {
+                      const statId = s.stat_id || (s as any).stat?.stat_id
+                      const statValue = s.value || (s as any).stat?.value
+                      const statName = statDefs[statId] || 'unknown'
+                      return `stat_id ${statId} (${statName})=${statValue}`
+                    }).join(', ')
+                    console.log(`📊 Stats with names from definitions: ${statsWithNames}`)
+                  } else {
+                    console.warn(`⚠️ Stat definitions not available - cannot show stat names. This may cause incorrect stat_id mappings.`)
+                  }
+                  
+                  // Special logging for Celebrini to help identify stat_id mappings
+                  // Expected values: G:14, A:20, P:34, +/-:3, PIM:12, PPP:12, SHP:0, GWG:3, SOG:70, FW:181, HIT:14, BLK:16
+                  const playerName = playerDataArray.find((item: any) => item?.name?.full || item?.name)?.name?.full || 
+                                     playerDataArray.find((item: any) => item?.name?.full || item?.name)?.name ||
+                                     'Unknown'
+                  if (typeof playerName === 'string' && playerName.toLowerCase().includes('celebrini')) {
+                    console.log(`🎯 CELEBRINI STAT_ID MAPPING ANALYSIS:`)
+                    console.log(`   Expected: G:14, A:20, P:34, +/-:3, PIM:12, PPP:12, SHP:0, GWG:3, SOG:70, FW:181, HIT:14, BLK:16`)
+                    console.log(`   Looking for stat_ids with these values:`)
+                    const expectedValues: Record<string, number> = { 'G': 14, 'A': 20, 'P': 34, '+/-': 3, 'PIM': 12, 'PPP': 12, 'SHP': 0, 'GWG': 3, 'SOG': 70, 'FW': 181, 'HIT': 14, 'BLK': 16 }
+                    statsArray.forEach(s => {
+                      const statId = s.stat_id || (s as any).stat?.stat_id
+                      const statValue = typeof s.value === 'string' ? parseFloat(s.value) || 0 : (s.value || 0)
+                      const statName = yahooParser.hasStatDefinitions() ? yahooParser.getStatDefinitionsCache()[statId] || 'unknown' : 'unknown'
+                      
+                      // Find which expected stat this might be
+                      const matchingStat = Object.entries(expectedValues).find(([_, val]) => val === statValue)
+                      if (matchingStat) {
+                        console.log(`   ✅ stat_id ${statId} (${statName})=${statValue} → MATCHES ${matchingStat[0]}`)
+                      } else {
+                        console.log(`   📊 stat_id ${statId} (${statName})=${statValue}`)
+                      }
+                    })
+                  }
                 }
               } else {
                 console.warn(`⚠️ Player ${playerKey} has season stats but stats array is empty`)

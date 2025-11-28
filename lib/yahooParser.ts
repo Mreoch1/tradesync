@@ -86,6 +86,13 @@ export function hasStatDefinitions(): boolean {
   return Object.keys(statDefinitionsCache).length > 0
 }
 
+/**
+ * Get stat definitions cache (for debugging/logging)
+ */
+export function getStatDefinitionsCache(): Record<string, string> {
+  return statDefinitionsCache
+}
+
 function parsePlayerStatsWithName(
   yahooStats?: { stats?: Array<{ stat_id: string; value: string | number }>; coverage_type?: string; coverage_value?: number },
   playerPosition?: string,
