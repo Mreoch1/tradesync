@@ -528,21 +528,37 @@ Check browser console (F12) and Netlify function logs for more details.`)
 
       const fetchedLeagues = data.leagues || []
       setLeagues(fetchedLeagues)
-      setSuccess(`Found ${fetchedLeagues.length} leagues`)
       
-      // Auto-select and sync "atfh2" league if available
+      if (fetchedLeagues.length === 0) {
+        setError('No leagues found. Make sure you have access to at least one Yahoo Fantasy Sports league.')
+        setIsUpToDate(false)
+        return
+      }
+      
+      setSuccess(`Found ${fetchedLeagues.length} league(s): ${fetchedLeagues.map((l: any) => l.name || l.league_key).join(', ')}`)
+      
+      // Auto-select and sync the first available league
+      // Try to find "atfh2" first, otherwise use the first league
       const atfh2League = fetchedLeagues.find((l: any) => l.name === 'atfh2' || l.league_key?.includes('atfh2'))
-      if (atfh2League) {
-        setLeagueKey(atfh2League.league_key)
-        // Store league key for auto-sync on refresh
-        sessionStorage.setItem('yahoo_league_key', atfh2League.league_key)
-        // Auto-sync the league after a short delay
-        setTimeout(() => {
-          handleSyncLeagueWithKey(atfh2League.league_key)
-        }, 500)
+      const leagueToSync = atfh2League || fetchedLeagues[0]
+      
+      if (leagueToSync) {
+        const selectedLeagueKey = leagueToSync.league_key || leagueToSync.leagueKey
+        if (selectedLeagueKey) {
+          setLeagueKey(selectedLeagueKey)
+          // Store league key for auto-sync on refresh
+          sessionStorage.setItem('yahoo_league_key', selectedLeagueKey)
+          console.log(`✅ Auto-selected league: ${leagueToSync.name || selectedLeagueKey} (${selectedLeagueKey})`)
+          // Auto-sync the league after a short delay
+          setTimeout(() => {
+            handleSyncLeagueWithKey(selectedLeagueKey)
+          }, 500)
+        } else {
+          setError(`Selected league has no league_key. League data: ${JSON.stringify(leagueToSync)}`)
+          setIsUpToDate(false)
+        }
       } else {
-        // If atfh2 not found, show error
-        setError(`League "atfh2" not found. Found ${fetchedLeagues.length} league(s): ${fetchedLeagues.map((l: any) => l.name).join(', ')}`)
+        setError(`Could not select a league. Found ${fetchedLeagues.length} league(s) but none could be used.`)
         setIsUpToDate(false)
       }
     } catch (err: any) {

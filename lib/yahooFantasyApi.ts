@@ -563,22 +563,45 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
       }
     }
     
-    // Extract standings from teamArray[2]
-    const standings = teamArray[2]?.team_standings
+    // Extract standings - search through teamArray for standings data
+    // Standings might be at different indices depending on API response structure
     let wins = 0, losses = 0, ties = 0
+    let standingsFound = false
     
-    if (standings?.outcome_totals) {
-      const ot = standings.outcome_totals
-      wins = parseInt(ot.wins || ot.win || '0', 10) || 0
-      losses = parseInt(ot.losses || ot.loss || '0', 10) || 0
-      ties = parseInt(ot.ties || ot.tie || '0', 10) || 0
+    // Search through teamArray for standings
+    for (let i = 0; i < teamArray.length; i++) {
+      const item = teamArray[i]
+      if (!item || typeof item !== 'object') continue
       
-      // Log if we successfully parsed standings
-      if (wins > 0 || losses > 0 || ties > 0) {
-        console.log(`📊 Team ${teamData.name}: Record ${wins}-${losses}-${ties}`)
+      // Check for team_standings directly
+      if (item.team_standings) {
+        const standings = item.team_standings
+        if (standings.outcome_totals) {
+          const ot = standings.outcome_totals
+          wins = parseInt(ot.wins || ot.win || '0', 10) || 0
+          losses = parseInt(ot.losses || ot.loss || '0', 10) || 0
+          ties = parseInt(ot.ties || ot.tie || '0', 10) || 0
+          standingsFound = true
+          break
+        }
       }
+      
+      // Check if item itself is standings
+      if (item.outcome_totals) {
+        const ot = item.outcome_totals
+        wins = parseInt(ot.wins || ot.win || '0', 10) || 0
+        losses = parseInt(ot.losses || ot.loss || '0', 10) || 0
+        ties = parseInt(ot.ties || ot.tie || '0', 10) || 0
+        standingsFound = true
+        break
+      }
+    }
+    
+    if (standingsFound) {
+      console.log(`📊 Team ${teamData.name}: Record ${wins}-${losses}-${ties}`)
     } else {
-      console.warn(`⚠️ Team ${teamData.name}: No standings data found (teamArray[2]?.team_standings missing)`)
+      console.warn(`⚠️ Team ${teamData.name}: No standings data found. Searched through ${teamArray.length} teamArray elements.`)
+      console.warn(`   TeamArray structure:`, JSON.stringify(teamArray.slice(0, 3), null, 2).substring(0, 500))
     }
 
     const teamId = teamData.team_id || teamData.team_key?.split('.')?.[3] || ''
