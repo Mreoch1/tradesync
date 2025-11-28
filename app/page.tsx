@@ -36,7 +36,7 @@ export default function Home() {
     const saved = sessionStorage.getItem('tradeBlock')
     if (saved) {
       try {
-        setTradeBlock(JSON.parse(saved))
+        setTradeBlock(JSON.parse(saved) as Player[])
       } catch (e) {
         console.error('Error loading trade block:', e)
       }

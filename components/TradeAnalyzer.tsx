@@ -52,7 +52,7 @@ export default function TradeAnalyzer() {
       return teamManager.getAllPlayers()
     }
     return teamManager.getTeamPlayers(selectedTeamId)
-  }, [selectedTeamId, teams])
+  }, [selectedTeamId])
 
   const selectedTeam = selectedTeamId ? teamManager.getTeam(selectedTeamId) : null
 
