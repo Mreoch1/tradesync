@@ -168,6 +168,7 @@ Please verify:
 
   try {
     // Exchange authorization code for access token
+    console.log('🔄 Attempting token exchange with redirect URI:', redirectUri)
     const tokens = await getAccessToken(clientId, clientSecret, code, redirectUri)
 
     // Redirect back to app with tokens in query params (hash doesn't work with server redirects)
@@ -181,12 +182,18 @@ Please verify:
       redirectUrl.searchParams.set('state', state)
     }
 
-    console.log('Redirecting back to app at:', redirectUrl.toString())
+    console.log('✅ Token exchange successful, redirecting back to app')
     return NextResponse.redirect(redirectUrl.toString())
   } catch (error: any) {
-    console.error('OAuth token exchange error:', error)
+    console.error('❌ OAuth token exchange error:', error)
+    console.error('   Error message:', error.message)
+    console.error('   Redirect URI used:', redirectUri)
+    console.error('   Expected redirect URI:', 'https://aitradr.netlify.app/api/auth/yahoo/callback')
+    
     const redirectUrl = new URL('/', baseUrl)
-    redirectUrl.searchParams.set('yahoo_error', error.message || 'Failed to exchange authorization code')
+    // Preserve the full error message for INVALID_REDIRECT_URI
+    const errorMessage = error.message || 'Failed to exchange authorization code'
+    redirectUrl.searchParams.set('yahoo_error', errorMessage)
     return NextResponse.redirect(redirectUrl.toString())
   }
 }

@@ -118,11 +118,42 @@ export async function getAccessToken(
 
   if (!response.ok) {
     let errorText = 'Unknown error'
+    let errorJson: any = null
     try {
       errorText = await response.text()
+      // Try to parse as JSON
+      try {
+        errorJson = JSON.parse(errorText)
+      } catch {
+        // Not JSON, use as-is
+      }
     } catch (e) {
       errorText = `HTTP ${response.status} ${response.statusText}`
     }
+    
+    // Provide helpful error message for INVALID_REDIRECT_URI
+    if (errorJson?.error === 'INVALID_REDIRECT_URI' || errorText.includes('INVALID_REDIRECT_URI')) {
+      const errorMsg = `INVALID_REDIRECT_URI: The redirect URI doesn't match what's configured in Yahoo Developer Portal.
+
+Redirect URI being used: ${redirectUri}
+
+To fix this:
+1. Go to Yahoo Developer Portal: https://developer.yahoo.com/apps/
+2. Find your app and click "Edit"
+3. Check the "Redirect URI(s)" field
+4. Make sure this EXACT URI is listed: ${redirectUri}
+5. No trailing slashes, must be HTTPS
+6. Click "Update" and wait 2-5 minutes for changes to propagate
+7. Try again
+
+If you're in production, the redirect URI should be:
+https://aitradr.netlify.app/api/auth/yahoo/callback
+
+If you're in local development, use your Cloudflare Tunnel URL:
+https://YOUR_TUNNEL_URL.trycloudflare.com/api/auth/yahoo/callback`
+      throw new Error(errorMsg)
+    }
+    
     throw new Error(`Failed to get access token: ${errorText}`)
   }
 
@@ -688,7 +719,7 @@ async function fetchPlayerStats(
             console.log(`📊 Coverage: ${player.player_stats.coverage_type}, Season: ${player.player_stats.coverage_value}`)
             console.log(`${'='.repeat(80)}\n`)
           }
-        } else {
+            } else {
           console.warn(`⚠️ No season stats found for player ${playerKey}`)
         }
       })
@@ -733,9 +764,9 @@ export async function getTeamRoster(
     
     if (!playerData?.player_key) {
       console.warn('Skipping player - missing player_key')
-      return
-    }
-
+              return
+            }
+            
     // Extract ownership from playerArray
     let ownership: any = undefined
     for (let i = 1; i < playerArray.length; i++) {
