@@ -227,14 +227,32 @@ function parsePlayerStats(
     }
     
     // Helper function to find stat_id by name using stat definitions
+    // More flexible matching: tries exact match, partial match, and variations
     const findStatIdByName = (statNames: string[]): string | undefined => {
       if (!useStatDefinitions) return undefined
+      
+      // Try exact matches first
       for (const name of statNames) {
-        const statId = statNameToIdCache[name.toLowerCase()]
+        const lowerName = name.toLowerCase()
+        const statId = statNameToIdCache[lowerName]
         if (statId && statsMap[statId] !== undefined) {
           return statId
         }
       }
+      
+      // Try partial matches (e.g., "plus/minus" matches "Plus/Minus" or "Plus Minus")
+      for (const name of statNames) {
+        const lowerName = name.toLowerCase().replace(/[^a-z0-9]/g, '')
+        for (const [cachedName, statId] of Object.entries(statNameToIdCache)) {
+          const cachedLower = cachedName.toLowerCase().replace(/[^a-z0-9]/g, '')
+          if (cachedLower.includes(lowerName) || lowerName.includes(cachedLower)) {
+            if (statsMap[statId] !== undefined) {
+              return statId
+            }
+          }
+        }
+      }
+      
       return undefined
     }
     
@@ -415,14 +433,32 @@ function parsePlayerStats(
     }
     
     // Helper function to find stat_id by name using stat definitions
+    // More flexible matching: tries exact match, partial match, and variations
     const findStatIdByName = (statNames: string[]): string | undefined => {
       if (!useStatDefinitions) return undefined
+      
+      // Try exact matches first
       for (const name of statNames) {
-        const statId = statNameToIdCache[name.toLowerCase()]
+        const lowerName = name.toLowerCase()
+        const statId = statNameToIdCache[lowerName]
         if (statId && statsMap[statId] !== undefined) {
           return statId
         }
       }
+      
+      // Try partial matches (e.g., "plus/minus" matches "Plus/Minus" or "Plus Minus")
+      for (const name of statNames) {
+        const lowerName = name.toLowerCase().replace(/[^a-z0-9]/g, '')
+        for (const [cachedName, statId] of Object.entries(statNameToIdCache)) {
+          const cachedLower = cachedName.toLowerCase().replace(/[^a-z0-9]/g, '')
+          if (cachedLower.includes(lowerName) || lowerName.includes(cachedLower)) {
+            if (statsMap[statId] !== undefined) {
+              return statId
+            }
+          }
+        }
+      }
+      
       return undefined
     }
     
@@ -522,19 +558,36 @@ function parsePlayerStats(
     }
     
     // Plus/Minus (+/-) - use stat definitions first
-    const plusMinusStatId = findStatIdByName(['plus/minus', 'plus minus', '+/-', 'plusminus'])
+    const plusMinusStatId = findStatIdByName(['plus/minus', 'plus minus', '+/-', 'plusminus', 'plus', 'minus'])
     if (plusMinusStatId) {
       stats.plusMinus = statsMap[plusMinusStatId]
-    } else if (statsMap['3'] !== undefined) {
-      stats.plusMinus = statsMap['3'] // Fallback to stat_id 3
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`✅ Celebrini Plus/Minus: Found via stat definitions, stat_id=${plusMinusStatId}, value=${stats.plusMinus}`)
+      }
+    } else {
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.warn(`⚠️ Celebrini Plus/Minus: Using fallback stat_id=3, value=${statsMap['3']}`)
+        console.warn(`   Available stat names in cache: ${Object.keys(statNameToIdCache).slice(0, 20).join(', ')}`)
+      }
+      if (statsMap['3'] !== undefined) {
+        stats.plusMinus = statsMap['3'] // Fallback to stat_id 3
+      }
     }
     
     // Penalty Minutes (PIM) - use stat definitions first
-    const pimStatId = findStatIdByName(['penalty minutes', 'pim', 'penalties'])
+    const pimStatId = findStatIdByName(['penalty minutes', 'pim', 'penalties', 'penalty'])
     if (pimStatId) {
       stats.pim = statsMap[pimStatId]
-    } else if (statsMap['4'] !== undefined) {
-      stats.pim = statsMap['4'] // Fallback to stat_id 4
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`✅ Celebrini PIM: Found via stat definitions, stat_id=${pimStatId}, value=${stats.pim}`)
+      }
+    } else {
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.warn(`⚠️ Celebrini PIM: Using fallback stat_id=4, value=${statsMap['4']}`)
+      }
+      if (statsMap['4'] !== undefined) {
+        stats.pim = statsMap['4'] // Fallback to stat_id 4
+      }
     }
     
     // Power Play Points (PPP) - use stat definitions first
@@ -546,55 +599,103 @@ function parsePlayerStats(
     }
     
     // Short Handed Points (SHP) - use stat definitions first
-    const shpStatId = findStatIdByName(['short handed points', 'shp', 'sh points'])
+    const shpStatId = findStatIdByName(['short handed points', 'shp', 'sh points', 'shorthanded', 'short handed'])
     if (shpStatId) {
       stats.shp = statsMap[shpStatId]
-    } else if (statsMap['6'] !== undefined) {
-      stats.shp = statsMap['6'] // Fallback to stat_id 6
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`✅ Celebrini SHP: Found via stat definitions, stat_id=${shpStatId}, value=${stats.shp}`)
+      }
+    } else {
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.warn(`⚠️ Celebrini SHP: Using fallback stat_id=6, value=${statsMap['6']}`)
+      }
+      if (statsMap['6'] !== undefined) {
+        stats.shp = statsMap['6'] // Fallback to stat_id 6
+      }
     }
     
     // Game Winning Goals (GWG) - use stat definitions first
-    const gwgStatId = findStatIdByName(['game winning goals', 'gwg', 'game winners'])
+    const gwgStatId = findStatIdByName(['game winning goals', 'gwg', 'game winners', 'game winning', 'gw goals'])
     if (gwgStatId) {
       stats.gwg = statsMap[gwgStatId]
-    } else if (statsMap['7'] !== undefined) {
-      stats.gwg = statsMap['7'] // Fallback to stat_id 7
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`✅ Celebrini GWG: Found via stat definitions, stat_id=${gwgStatId}, value=${stats.gwg}`)
+      }
+    } else {
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.warn(`⚠️ Celebrini GWG: Using fallback stat_id=7, value=${statsMap['7']}`)
+      }
+      if (statsMap['7'] !== undefined) {
+        stats.gwg = statsMap['7'] // Fallback to stat_id 7
+      }
     }
     
     // Shots on Goal (SOG) - use stat definitions first
-    const sogStatId = findStatIdByName(['shots on goal', 'sog', 'shots', 'shots on net'])
+    const sogStatId = findStatIdByName(['shots on goal', 'sog', 'shots', 'shots on net', 'shot'])
     if (sogStatId) {
       stats.sog = statsMap[sogStatId]
-    } else if (statsMap['8'] !== undefined) {
-      stats.sog = statsMap['8'] // Fallback to stat_id 8
-    } else if (statsMap['31'] !== undefined) {
-      stats.sog = statsMap['31'] // Alternative fallback
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`✅ Celebrini SOG: Found via stat definitions, stat_id=${sogStatId}, value=${stats.sog}`)
+      }
+    } else {
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.warn(`⚠️ Celebrini SOG: Using fallback, trying stat_id=8 (${statsMap['8']}), stat_id=31 (${statsMap['31']})`)
+      }
+      if (statsMap['8'] !== undefined) {
+        stats.sog = statsMap['8'] // Fallback to stat_id 8
+      } else if (statsMap['31'] !== undefined) {
+        stats.sog = statsMap['31'] // Alternative fallback
+      }
     }
     
     // Faceoff Wins (FW) - use stat definitions first
-    const fwStatId = findStatIdByName(['faceoff wins', 'fw', 'faceoffs won', 'face-offs won'])
+    const fwStatId = findStatIdByName(['faceoff wins', 'fw', 'faceoffs won', 'face-offs won', 'faceoff', 'face off'])
     if (fwStatId) {
       stats.fw = statsMap[fwStatId]
-    } else if (statsMap['9'] !== undefined) {
-      stats.fw = statsMap['9'] // Fallback to stat_id 9
-    } else if (statsMap['32'] !== undefined) {
-      stats.fw = statsMap['32'] // Alternative fallback
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`✅ Celebrini FW: Found via stat definitions, stat_id=${fwStatId}, value=${stats.fw}`)
+      }
+    } else {
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.warn(`⚠️ Celebrini FW: Using fallback, trying stat_id=9 (${statsMap['9']}), stat_id=32 (${statsMap['32']})`)
+      }
+      if (statsMap['9'] !== undefined) {
+        stats.fw = statsMap['9'] // Fallback to stat_id 9
+      } else if (statsMap['32'] !== undefined) {
+        stats.fw = statsMap['32'] // Alternative fallback
+      }
     }
     
     // Hits (HIT) - use stat definitions first
-    const hitStatId = findStatIdByName(['hits', 'hit'])
+    const hitStatId = findStatIdByName(['hits', 'hit', 'body checks'])
     if (hitStatId) {
       stats.hit = statsMap[hitStatId]
-    } else if (statsMap['10'] !== undefined) {
-      stats.hit = statsMap['10'] // Fallback to stat_id 10
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`✅ Celebrini HIT: Found via stat definitions, stat_id=${hitStatId}, value=${stats.hit}`)
+      }
+    } else {
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.warn(`⚠️ Celebrini HIT: Using fallback stat_id=10, value=${statsMap['10']}`)
+      }
+      if (statsMap['10'] !== undefined) {
+        stats.hit = statsMap['10'] // Fallback to stat_id 10
+      }
     }
     
     // Blocks (BLK) - use stat definitions first
-    const blkStatId = findStatIdByName(['blocks', 'blk', 'blocked shots'])
+    const blkStatId = findStatIdByName(['blocks', 'blk', 'blocked shots', 'blocked', 'block'])
     if (blkStatId) {
       stats.blk = statsMap[blkStatId]
-    } else if (statsMap['11'] !== undefined) {
-      stats.blk = statsMap['11'] // Fallback to stat_id 11
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`✅ Celebrini BLK: Found via stat definitions, stat_id=${blkStatId}, value=${stats.blk}`)
+      }
+    } else {
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.warn(`⚠️ Celebrini BLK: Using fallback stat_id=11, value=${statsMap['11']}`)
+      }
+      if (statsMap['11'] !== undefined) {
+        stats.blk = statsMap['11'] // Fallback to stat_id 11
+      }
     }
     
     // Log what we mapped for debugging
