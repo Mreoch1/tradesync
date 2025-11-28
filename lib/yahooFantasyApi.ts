@@ -429,29 +429,44 @@ export async function getLeagueInfo(accessToken: string, leagueKey: string): Pro
   
   const league = response.fantasy_content?.league
   if (!league || !Array.isArray(league) || league.length < 1) {
+    console.warn(`⚠️ getLeagueInfo: Invalid league response structure`)
     return {}
   }
-  
-  // league[0] is an array of league data objects
-  const leagueDataArray = league[0]
-  if (!Array.isArray(leagueDataArray)) {
-    return {}
-  }
-  
-  // Extract league data from the array of objects
-  let leagueData: any = {}
-  leagueDataArray.forEach((item: any) => {
-    if (typeof item === 'object' && item !== null) {
-      Object.assign(leagueData, item)
-    }
-  })
   
   // Extract game_key from league_key (format: {game_key}.l.{league_id})
   const leagueKeyParts = leagueKey?.split('.') || []
-  const gameKey = leagueKeyParts[0] || leagueData.game_key
+  const gameKey = leagueKeyParts[0]
+  
+  // league[0] might be an array of league data objects, or league[0] might be the data itself
+  let leagueData: any = {}
+  
+  if (Array.isArray(league[0])) {
+    // league[0] is an array - extract data from it
+    league[0].forEach((item: any) => {
+      if (typeof item === 'object' && item !== null) {
+        Object.assign(leagueData, item)
+      }
+    })
+  } else if (typeof league[0] === 'object' && league[0] !== null) {
+    // league[0] is directly the data object
+    leagueData = league[0]
+  }
+  
+  // Also check league[1] for additional data
+  if (league.length > 1 && typeof league[1] === 'object' && league[1] !== null) {
+    if (Array.isArray(league[1])) {
+      league[1].forEach((item: any) => {
+        if (typeof item === 'object' && item !== null) {
+          Object.assign(leagueData, item)
+        }
+      })
+    } else {
+      Object.assign(leagueData, league[1])
+    }
+  }
   
   // Try to get season from multiple sources
-  let season = leagueData.season || leagueData.current_season
+  let season = leagueData.season || leagueData.current_season || leagueData.game_season
   
   // If no season in league data, try to get it from game info
   if (!season && gameKey) {
@@ -477,7 +492,39 @@ export async function getLeagueInfo(accessToken: string, leagueKey: string): Pro
   // Log full league data for debugging if season still not found
   if (!season) {
     console.warn(`⚠️ Could not determine season for league ${leagueKey}. League data keys:`, Object.keys(leagueData).join(', '))
-    console.warn(`   Full league data (first 500 chars):`, JSON.stringify(leagueData, null, 2).substring(0, 500))
+    console.warn(`   Full league data (first 1000 chars):`, JSON.stringify(leagueData, null, 2).substring(0, 1000))
+    console.warn(`   Full league response structure (first 1000 chars):`, JSON.stringify(league, null, 2).substring(0, 1000))
+    
+    // Try to extract from league_key format: {game_key}.l.{league_id}
+    // For NHL, game_key 465 = 2025-26 season, so season should be 2025
+    if (gameKey === '465') {
+      season = '2025'
+      console.log(`📊 Using fallback: game_key 465 = 2025-26 NHL season, using season 2025`)
+    } else if (gameKey) {
+      // Try to fetch game info to get season
+      try {
+        const gameResponse = await makeApiRequest(`game/${gameKey}`, accessToken)
+        const game = gameResponse.fantasy_content?.game
+        if (game && Array.isArray(game) && game.length > 0) {
+          let gameData: any = {}
+          if (Array.isArray(game[0])) {
+            game[0].forEach((item: any) => {
+              if (typeof item === 'object' && item !== null) {
+                Object.assign(gameData, item)
+              }
+            })
+          } else if (typeof game[0] === 'object') {
+            gameData = game[0]
+          }
+          season = gameData.season
+          if (season) {
+            console.log(`📊 Extracted season ${season} from game ${gameKey} (fallback)`)
+          }
+        }
+      } catch (gameError: any) {
+        console.warn(`⚠️ Could not fetch game info for game_key ${gameKey}:`, gameError?.message)
+      }
+    }
   }
   
   console.log(`📊 League info for ${leagueKey}: season=${season || 'unknown'}, game_key=${gameKey || 'unknown'}`)
@@ -540,15 +587,23 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
       
     const teamArray = teamObj.team
     
-    // Extract team data from teamArray[0]
-    const teamData = extractYahooData<any>(teamArray, 0)
+    // Handle nested structure: teamArray[0] might itself be an array
+    let actualTeamArray: any[] = teamArray
+    if (Array.isArray(teamArray) && teamArray.length > 0 && Array.isArray(teamArray[0])) {
+      // teamArray[0] is an array - use it as the actual team array
+      actualTeamArray = teamArray[0]
+      console.log(`📊 Team structure: teamArray[0] is an array with ${actualTeamArray.length} elements`)
+    }
+    
+    // Extract team data from actualTeamArray[0]
+    const teamData = extractYahooData<any>(actualTeamArray, 0)
     if (!teamData?.team_key) {
       console.warn(`Skipping team at key ${key} - missing team_key`)
       return
     }
     
-    // Extract manager from teamArray[1]
-    const managers = teamArray[1]?.managers
+    // Extract manager from actualTeamArray[1]
+    const managers = actualTeamArray[1]?.managers
     let managerName: string | undefined
     if (managers && typeof managers === 'object') {
     const managerValues = Object.values(managers)
@@ -563,14 +618,14 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
       }
     }
     
-    // Extract standings - search through teamArray for standings data
+    // Extract standings - search through actualTeamArray for standings data
     // Standings might be at different indices depending on API response structure
     let wins = 0, losses = 0, ties = 0
     let standingsFound = false
     
-    // Search through teamArray for standings
-    for (let i = 0; i < teamArray.length; i++) {
-      const item = teamArray[i]
+    // Search through actualTeamArray for standings
+    for (let i = 0; i < actualTeamArray.length; i++) {
+      const item = actualTeamArray[i]
       if (!item || typeof item !== 'object') continue
       
       // Check for team_standings directly
@@ -595,13 +650,37 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
         standingsFound = true
         break
       }
+      
+      // Also check nested structures - item might be an array
+      if (Array.isArray(item)) {
+        for (let j = 0; j < item.length; j++) {
+          const subItem = item[j]
+          if (subItem?.team_standings?.outcome_totals) {
+            const ot = subItem.team_standings.outcome_totals
+            wins = parseInt(ot.wins || ot.win || '0', 10) || 0
+            losses = parseInt(ot.losses || ot.loss || '0', 10) || 0
+            ties = parseInt(ot.ties || ot.tie || '0', 10) || 0
+            standingsFound = true
+            break
+          }
+          if (subItem?.outcome_totals) {
+            const ot = subItem.outcome_totals
+            wins = parseInt(ot.wins || ot.win || '0', 10) || 0
+            losses = parseInt(ot.losses || ot.loss || '0', 10) || 0
+            ties = parseInt(ot.ties || ot.tie || '0', 10) || 0
+            standingsFound = true
+            break
+          }
+        }
+        if (standingsFound) break
+      }
     }
     
     if (standingsFound) {
       console.log(`📊 Team ${teamData.name}: Record ${wins}-${losses}-${ties}`)
     } else {
-      console.warn(`⚠️ Team ${teamData.name}: No standings data found. Searched through ${teamArray.length} teamArray elements.`)
-      console.warn(`   TeamArray structure:`, JSON.stringify(teamArray.slice(0, 3), null, 2).substring(0, 500))
+      console.warn(`⚠️ Team ${teamData.name}: No standings data found. Searched through ${actualTeamArray.length} actualTeamArray elements.`)
+      console.warn(`   ActualTeamArray structure:`, JSON.stringify(actualTeamArray.slice(0, 5), null, 2).substring(0, 800))
     }
 
     const teamId = teamData.team_id || teamData.team_key?.split('.')?.[3] || ''
