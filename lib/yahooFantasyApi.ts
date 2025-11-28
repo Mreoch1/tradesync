@@ -1019,11 +1019,15 @@ export async function getTeamRoster(
           
           // CRITICAL: Only use season-based stats endpoint - date-based stats return wrong coverage types
           // For 2025-26 NHL season, use season=2025
+          // Yahoo API format: players;player_keys=.../stats;type=season;season=2025
           if (season) {
             // Use season stats endpoint - this is the ONLY endpoint that returns correct season stats
+            // IMPORTANT: Yahoo API requires the season parameter to match the actual season year
+            // For 2025-26 NHL season, season=2025
             statsEndpoint = `players;player_keys=${batch.join(',')}/stats;type=season;season=${season}`
-            console.log(`📊 Fetching SEASON stats for ${batch.length} players: season=${season}`)
+            console.log(`📊 Fetching ACTUAL SEASON stats for ${batch.length} players: season=${season}`)
             console.log(`📊 Endpoint: ${statsEndpoint.substring(0, 150)}...`)
+            console.log(`📊 CRITICAL: This endpoint should return coverage_type='season' with actual game stats, NOT projected stats`)
             try {
               statsResponse = await makeApiRequest(statsEndpoint, accessToken)
               
@@ -1038,6 +1042,40 @@ export async function getTeamRoster(
               }
               
               console.log(`✅ Successfully fetched season stats for ${playerCount} players (season=${season})`)
+              
+              // CRITICAL: Verify we got season stats, not projected stats
+              // Check first player's coverage_type to ensure it's 'season'
+              const firstPlayerKey = Object.keys(statsResponse.fantasy_content.players)[0]
+              const firstPlayer = statsResponse.fantasy_content.players[firstPlayerKey]
+              if (firstPlayer?.player && Array.isArray(firstPlayer.player) && firstPlayer.player[1]) {
+                const statsData = firstPlayer.player[1]
+                let coverageType = 'unknown'
+                if (statsData.player_stats) {
+                  if (statsData.player_stats["0"]) {
+                    coverageType = statsData.player_stats["0"].coverage_type || 'unknown'
+                  } else if (statsData.player_stats.coverage_type) {
+                    coverageType = statsData.player_stats.coverage_type
+                  }
+                } else if (Array.isArray(statsData)) {
+                  // Find season stats in array
+                  for (const item of statsData) {
+                    if (item?.player_stats?.coverage_type === 'season' || item?.coverage_type === 'season') {
+                      coverageType = 'season'
+                      break
+                    }
+                  }
+                }
+                
+                if (coverageType !== 'season') {
+                  console.error(`❌ CRITICAL ERROR: API returned ${coverageType} stats instead of 'season' stats!`)
+                  console.error(`   This means we're getting projected/average stats instead of actual season stats.`)
+                  console.error(`   First player coverage_type: ${coverageType}`)
+                  console.error(`   Expected: coverage_type='season'`)
+                  console.error(`   This will cause incorrect stat values to be displayed!`)
+                } else {
+                  console.log(`✅ VERIFIED: API returned season stats (coverage_type='season')`)
+                }
+              }
             } catch (seasonError: any) {
               console.error(`❌ CRITICAL: Failed to fetch season stats (season=${season}):`, seasonError?.message)
               console.error(`   This batch will be skipped. Players will not have stats.`)
@@ -1045,8 +1083,10 @@ export async function getTeamRoster(
             }
           } else {
             // If no season provided, try without season parameter (should return current season)
+            // WARNING: This might return projected stats instead of actual stats
             statsEndpoint = `players;player_keys=${batch.join(',')}/stats`
             console.log(`📊 WARNING: No season provided, fetching stats without season parameter`)
+            console.log(`📊 WARNING: This may return projected stats instead of actual season stats!`)
             console.log(`📊 Endpoint: ${statsEndpoint.substring(0, 150)}...`)
             try {
               statsResponse = await makeApiRequest(statsEndpoint, accessToken)
@@ -1062,6 +1102,7 @@ export async function getTeamRoster(
               }
               
               console.log(`✅ Successfully fetched stats for ${playerCount} players (no season specified)`)
+              console.log(`⚠️ WARNING: Cannot verify if these are actual season stats or projected stats`)
             } catch (noSeasonError: any) {
               console.error(`❌ CRITICAL: Failed to fetch stats without season:`, noSeasonError?.message)
               statsResponse = null
@@ -1228,11 +1269,18 @@ export async function getTeamRoster(
               coverageValue = playerStatsObj.coverage_value || 2025
             }
             
-            // CRITICAL: Only use season stats
+            // CRITICAL: Only use season stats, reject all others (projected, average, etc.)
             if (coverageType !== 'season') {
-              console.warn(`⚠️ Skipping ${coverageType} stats for ${playerKey} - only using season stats`)
+              console.warn(`⚠️ REJECTING ${coverageType} stats for ${playerKey} - only using season stats`)
+              console.warn(`   This prevents projected/average stats from being used instead of actual game stats`)
               playerStats = null
             } else {
+              // Verify coverage_value matches requested season
+              if (season && coverageValue !== season && String(coverageValue) !== String(season)) {
+                console.warn(`⚠️ WARNING: Player ${playerKey} season stats have coverage_value=${coverageValue}, but requested season=${season}`)
+                console.warn(`   Using stats anyway, but they may be from wrong season`)
+              }
+              
               // Extract stats array
               if (playerStatsObj.stats && Array.isArray(playerStatsObj.stats)) {
                 statsArray = playerStatsObj.stats
@@ -1246,6 +1294,17 @@ export async function getTeamRoster(
                   stats: statsArray
                 }
                 console.log(`✅ Found SEASON player_stats in object for ${playerKey}: coverage_type="${coverageType}", coverage_value=${coverageValue}, ${statsArray.length} stats`)
+                
+                // Log first few stat values for verification (helps catch wrong stat_id mappings)
+                if (Object.keys(statsByPlayerKey).length === 0) {
+                  const firstStats = statsArray.slice(0, 5).map(s => {
+                    const statId = s.stat_id || (s as any).stat?.stat_id
+                    const statValue = s.value || (s as any).stat?.value
+                    return `stat_id ${statId}=${statValue}`
+                  }).join(', ')
+                  console.log(`📊 First 5 stat values from API: ${firstStats}`)
+                  console.log(`📊 VERIFY: Compare these with Yahoo website to ensure stat_id mappings are correct`)
+                }
               } else {
                 console.warn(`⚠️ Player ${playerKey} has season stats but stats array is empty`)
                 playerStats = null
@@ -1254,17 +1313,35 @@ export async function getTeamRoster(
           } else if (statsData.stats && Array.isArray(statsData.stats)) {
             const coverageType = statsData.coverage_type || 'unknown'
             
-            // CRITICAL: Only use season stats
+            // CRITICAL: Only use season stats, reject all others (projected, average, etc.)
             if (coverageType !== 'season') {
-              console.warn(`⚠️ Skipping ${coverageType} stats for ${playerKey} - only using season stats`)
+              console.warn(`⚠️ REJECTING ${coverageType} stats for ${playerKey} - only using season stats`)
+              console.warn(`   This prevents projected/average stats from being used instead of actual game stats`)
               playerStats = null
             } else {
-            playerStats = {
-              coverage_type: coverageType,
-              coverage_value: statsData.coverage_value || 2025,
-              stats: statsData.stats
-            }
+              // Verify coverage_value matches requested season
+              if (season && statsData.coverage_value !== season && String(statsData.coverage_value) !== String(season)) {
+                console.warn(`⚠️ WARNING: Player ${playerKey} season stats have coverage_value=${statsData.coverage_value}, but requested season=${season}`)
+                console.warn(`   Using stats anyway, but they may be from wrong season`)
+              }
+              
+              playerStats = {
+                coverage_type: coverageType,
+                coverage_value: statsData.coverage_value || 2025,
+                stats: statsData.stats
+              }
               console.log(`✅ Found SEASON stats array in object for ${playerKey}: ${statsData.stats.length} stats, coverage_type="${coverageType}"`)
+              
+              // Log first few stat values for verification (helps catch wrong stat_id mappings)
+              if (statsData.stats.length > 0 && Object.keys(statsByPlayerKey).length === 0) {
+                const firstStats = statsData.stats.slice(0, 5).map((s: { stat_id?: string; value?: string | number; stat?: { stat_id?: string; value?: string | number } }) => {
+                  const statId = s.stat_id || s.stat?.stat_id
+                  const statValue = s.value || s.stat?.value
+                  return `stat_id ${statId}=${statValue}`
+                }).join(', ')
+                console.log(`📊 First 5 stat values from API: ${firstStats}`)
+                console.log(`📊 VERIFY: Compare these with Yahoo website to ensure stat_id mappings are correct`)
+              }
             }
           }
         }
