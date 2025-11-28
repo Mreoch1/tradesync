@@ -46,17 +46,16 @@ export default function Home() {
 
     // Listen for trade block updates
     const handleStorageChange = () => {
-      const updated = sessionStorage.getItem('tradeBlock')
-      if (updated) {
-        try {
-          // TypeScript doesn't narrow sessionStorage.getItem properly, so we assert non-null
-          const parsed = JSON.parse(updated) as Player[]
-          setTradeBlock(parsed)
-        } catch (e) {
-          console.error('Error loading trade block:', e)
+      try {
+        const updated = sessionStorage.getItem('tradeBlock')
+        if (!updated) {
+          setTradeBlock([])
+          return
         }
-      } else {
-        setTradeBlock([])
+        const parsed = JSON.parse(updated) as Player[]
+        setTradeBlock(parsed)
+      } catch (e) {
+        console.error('Error loading trade block:', e)
       }
     }
 
