@@ -28,6 +28,13 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Mobile-friendly base styles */
+  @media (max-width: 640px) {
+    body {
+      font-size: 16px; /* Better readability on mobile */
+    }
+  }
+
   /* Form elements - professional styling */
   input,
   select,
@@ -90,6 +97,14 @@
     overflow: hidden;
   }
 
+  /* Mobile-friendly card adjustments */
+  @media (max-width: 640px) {
+    .card {
+      border-radius: 8px;
+      margin: 0 -0.5rem; /* Extend to edges on mobile */
+    }
+  }
+
   /* Button component base */
   .btn {
     display: inline-flex;
@@ -99,10 +114,24 @@
     border-radius: 8px;
     transition: all 0.15s ease-in-out;
     cursor: pointer;
+    min-height: 44px; /* Touch-friendly minimum size */
   }
 
   .btn:focus {
     outline: none;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  /* Mobile-friendly table wrapper */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @media (max-width: 640px) {
+    .table-wrapper {
+      margin: 0 -1rem;
+      padding: 0 1rem;
+    }
   }
 }

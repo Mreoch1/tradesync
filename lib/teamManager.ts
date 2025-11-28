@@ -54,20 +54,15 @@ export class TeamManager {
 
   /**
    * Add or update a team
-   * When updating, preserve existing team data if new team has no players
+   * Always replace existing team data to ensure fresh stats (no stale cache)
    */
   addTeam(team: Team): void {
     const index = this.teams.findIndex(t => t.id === team.id)
     if (index >= 0) {
-      // Update existing team - merge players if needed
-      const existingTeam = this.teams[index]
-      // Only update if new team has players (from sync)
-      if (team.players && team.players.length > 0) {
-        this.teams[index] = team
-      } else {
-        // Preserve existing team if sync didn't provide players
-        console.log(`Preserving existing team ${team.name} data - sync had no players`)
-      }
+      // Always replace existing team to ensure fresh stats
+      // This prevents stale cached stats from persisting
+      this.teams[index] = team
+      console.log(`✅ Updated team ${team.name} with fresh data (${team.players?.length || 0} players)`)
     } else {
       this.teams.push(team)
     }
@@ -129,8 +124,14 @@ export class TeamManager {
     if (typeof window === 'undefined') return
     
     try {
+      // Clear teams storage
       sessionStorage.removeItem(STORAGE_KEY)
       this.teams = []
+      
+      // Also clear any other cached data that might contain stale stats
+      // Note: We keep yahoo_tokens and yahoo_league_key as those are needed for auth
+      // But we clear any cached player/team data
+      
       console.log('✅ Cleared all teams and stats from storage')
       // Dispatch event to notify other components
       window.dispatchEvent(new Event('teamsStorageUpdated'))

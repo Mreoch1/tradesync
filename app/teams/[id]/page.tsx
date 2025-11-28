@@ -212,14 +212,14 @@ export default function TeamPage() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
               {team.record && (
-                <div className="text-sm text-gray-600">
+                <div className="text-xs sm:text-sm text-gray-600">
                   <span className="font-medium">Record:</span> {team.record}
                 </div>
               )}
               {team.rank && (
-                <div className="text-sm text-gray-600">
+                <div className="text-xs sm:text-sm text-gray-600">
                   <span className="font-medium">Rank:</span> #{team.rank}
                 </div>
               )}
@@ -228,10 +228,10 @@ export default function TeamPage() {
         </div>
       </div>
 
-      <div className="max-w-[1200px] mx-auto px-8 py-8">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         {/* Team Summary */}
         <Card className="mb-6">
-          <div className="grid grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
             <div>
               <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
                 Total Players
@@ -453,10 +453,10 @@ export default function TeamPage() {
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-4 ml-4">
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-4 ml-2 sm:ml-4">
                         <div className="text-right">
                           <div className="text-xs text-gray-500">Value</div>
-                          <div className="text-lg font-bold text-gray-900">
+                          <div className="text-base sm:text-lg font-bold text-gray-900">
                             {player.value?.toFixed(1) || '0.0'}
                           </div>
                           {isInTradeBlock && (
@@ -470,6 +470,7 @@ export default function TeamPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleRemoveFromTradeBlock(player.id)}
+                            className="min-w-[80px]"
                           >
                             Remove
                           </Button>
@@ -477,6 +478,7 @@ export default function TeamPage() {
                           <Button
                             size="sm"
                             onClick={() => handleAddToTradeBlock(player)}
+                            className="min-w-[80px]"
                           >
                             Add to Trade
                           </Button>
