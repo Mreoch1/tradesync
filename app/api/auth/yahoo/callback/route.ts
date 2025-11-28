@@ -51,13 +51,6 @@ export async function GET(request: NextRequest) {
   console.log('Callback - YAHOO_REDIRECT_URI env:', process.env.YAHOO_REDIRECT_URI)
   console.log('Callback - Full request URL:', request.url)
   console.log('Callback - Search params string:', request.nextUrl.search)
-  
-  // Log ALL query parameters for debugging
-  const allParams: Record<string, string> = {}
-  searchParams.forEach((value, key) => {
-    allParams[key] = value
-  })
-  console.log('🔍 Callback - All query parameters:', JSON.stringify(allParams, null, 2))
   console.log('🔍 Callback - Query param keys:', Object.keys(allParams).join(', '))
 
   // Handle OAuth errors
