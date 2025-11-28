@@ -278,13 +278,13 @@ export default function TeamPage() {
                   return (
                     <div
                       key={player.id}
-                      className={`flex items-center justify-between p-4 rounded-lg transition-colors ${
+                      className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-lg transition-colors gap-3 sm:gap-0 ${
                         isInTradeBlock
                           ? 'bg-blue-50 border-2 border-blue-200'
                           : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
                       }`}
                     >
-                      <div className="flex-1">
+                      <div className="flex-1 w-full sm:w-auto">
                         <div className="flex items-center gap-3 mb-2">
                           <div className="font-semibold text-gray-900">{player.name}</div>
                           <div className="text-sm text-gray-600">{player.team}</div>
