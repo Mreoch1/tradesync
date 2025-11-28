@@ -34,7 +34,7 @@ export default function Home() {
 
     // Load trade block from sessionStorage
     const saved = sessionStorage.getItem('tradeBlock')
-    if (saved) {
+    if (saved !== null) {
       try {
         setTradeBlock(JSON.parse(saved) as Player[])
       } catch (e) {
@@ -45,9 +45,9 @@ export default function Home() {
     // Listen for trade block updates
     const handleStorageChange = () => {
       const updated = sessionStorage.getItem('tradeBlock')
-      if (updated) {
+      if (updated !== null) {
         try {
-          setTradeBlock(JSON.parse(updated))
+          setTradeBlock(JSON.parse(updated) as Player[])
         } catch (e) {
           console.error('Error loading trade block:', e)
         }
