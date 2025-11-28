@@ -147,10 +147,7 @@ To fix this:
 7. Try again
 
 If you're in production, the redirect URI should be:
-https://aitradr.netlify.app/api/auth/yahoo/callback
-
-If you're in local development, use your Cloudflare Tunnel URL:
-https://YOUR_TUNNEL_URL.trycloudflare.com/api/auth/yahoo/callback`
+https://aitradr.netlify.app/api/auth/yahoo/callback`
       throw new Error(errorMsg)
     }
     

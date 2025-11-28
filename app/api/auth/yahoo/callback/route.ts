@@ -24,26 +24,26 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get('error')
   const errorDescription = searchParams.get('error_description')
 
-  // Extract the actual URL from environment or request headers
-  // For Netlify production, use the environment variable
-  // For local dev (Cloudflare Tunnel), use the request origin
-  let baseUrl = process.env.YAHOO_REDIRECT_URI 
-    ? process.env.YAHOO_REDIRECT_URI.replace('/api/auth/yahoo/callback', '')
-    : null
+  // Determine if we're in production
+  // CRITICAL: In production, ALWAYS use hardcoded production URL - never use env vars or request origin
+  const isProduction = request.nextUrl.hostname === 'aitradr.netlify.app' || 
+                       request.nextUrl.hostname.includes('netlify.app') ||
+                       process.env.NETLIFY === 'true'
   
-  // If not in env, try to get from Host header (Cloudflare Tunnel sets this)
-  if (!baseUrl) {
-    const host = request.headers.get('host') || request.headers.get('x-forwarded-host')
-    if (host && host.includes('trycloudflare.com')) {
-      baseUrl = `https://${host}`
-    } else {
-      // Fallback to request origin (should be Netlify URL in production)
-      baseUrl = request.nextUrl.origin
-    }
+  let baseUrl: string
+  if (isProduction) {
+    // Production: ALWAYS use the exact production URL - ignore env vars and request origin
+    // This prevents tunnel URLs from being used
+    baseUrl = 'https://aitradr.netlify.app'
+  } else {
+    // Local dev only: Use environment variable or request origin
+    baseUrl = process.env.YAHOO_REDIRECT_URI 
+      ? process.env.YAHOO_REDIRECT_URI.replace('/api/auth/yahoo/callback', '')
+      : request.nextUrl.origin
   }
   
   // Ensure no trailing slash
-  baseUrl = baseUrl.replace(/\/$/, '')
+  baseUrl = baseUrl.replace(/\/+$/, '')
   
   console.log('Callback - Base URL:', baseUrl)
   console.log('Callback - Request origin:', request.nextUrl.origin)
@@ -121,22 +121,18 @@ Please verify:
   console.log('🔍 Token exchange - Client Secret:', clientSecret ? 'SET' : 'NOT SET')
   
   // Build redirect URI for token exchange - MUST match exactly what was sent in authorization request
-  // CRITICAL: This must match EXACTLY what was sent in the OAuth authorization request
-  // For production (Netlify), always use the hardcoded production URL
-  // For local dev, use the request origin
+  // CRITICAL: In production, ALWAYS use hardcoded production URL - ignore env vars completely
   let redirectUri: string
   
-  // Determine if we're in production based on hostname
-  const isProduction = baseUrl.includes('netlify.app') || baseUrl.includes('aitradr.netlify.app')
-  
   if (isProduction) {
-    // Production: Always use the exact production URL (must match Yahoo Developer Portal)
+    // Production: ALWAYS use the exact hardcoded production URL
+    // DO NOT use YAHOO_REDIRECT_URI env var in production - it might be set to a tunnel URL
     redirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
   } else if (process.env.YAHOO_REDIRECT_URI) {
     // Local dev with env var: Use the env var
     redirectUri = process.env.YAHOO_REDIRECT_URI.trim()
   } else {
-    // Local dev: Reconstruct from request origin
+    // Local dev: Reconstruct from baseUrl
     redirectUri = `${baseUrl}/api/auth/yahoo/callback`
   }
   

@@ -144,8 +144,8 @@ Note: NEXT_PUBLIC_ variables are embedded at build time, so a rebuild is require
     }
 
     // Build redirect URI - MUST match exactly what's configured in Yahoo Developer Portal
-    // For production, always use the Netlify URL
-    // For local dev, use window.location.origin
+    // For production, ALWAYS use the hardcoded Netlify URL - never use window.location.origin
+    // This prevents tunnel URLs from being used in production
     const isProduction = window.location.hostname === 'aitradr.netlify.app' || window.location.hostname.includes('netlify.app')
     const redirectUri = isProduction 
       ? 'https://aitradr.netlify.app/api/auth/yahoo/callback'
@@ -161,8 +161,7 @@ Note: NEXT_PUBLIC_ variables are embedded at build time, so a rebuild is require
 Current URL: ${window.location.href}
 Redirect URI would be: ${cleanRedirectUri}
 
-For local development, use a Cloudflare Tunnel or similar HTTPS proxy.
-See docs/YAHOO_HTTPS_SETUP.md for instructions.`
+For production, use: https://aitradr.netlify.app`
       setError(errorMsg)
       return
     }
