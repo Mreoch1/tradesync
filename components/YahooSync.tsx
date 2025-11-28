@@ -296,12 +296,6 @@ Visit /diagnostics to see detailed configuration.`
   }, [])
 
   const handleSyncLeagueWithKey = async (keyToUse?: string) => {
-    // Clear all existing teams/stats before syncing to ensure fresh data
-    if (typeof window !== 'undefined') {
-      const { teamManager } = await import('@/lib/teamManager')
-      teamManager.clearAllTeams()
-      console.log('🧹 Cleared all cached teams/stats before fresh sync')
-    }
     const key = keyToUse || leagueKey
     if (!tokens || !key) {
       setError('Please select a league first')
@@ -372,26 +366,54 @@ Visit /diagnostics to see detailed configuration.`
             }
           }))
         } else {
-          onTeamsSynced(data.teams)
-          setIsUpToDate(true)
-          setSuccess(null) // Clear success message, we'll show up-to-date status instead
-          const syncTime = new Date().toLocaleTimeString()
-          setLastSyncTime(syncTime)
-          // Store the league key and sync time for auto-sync on refresh
-          if (key) {
-            sessionStorage.setItem('yahoo_league_key', key)
-            sessionStorage.setItem('yahoo_last_sync_time', syncTime)
-          }
-          // Dispatch sync status event
-          window.dispatchEvent(new CustomEvent('yahooSyncStatus', {
-            detail: {
-              isSyncing: false,
-              isUpToDate: true,
-              lastSyncTime: syncTime,
-              error: null,
-              teamCount: data.teams.length,
+          // Validate teams have data before replacing existing teams
+          const teamsWithData = data.teams.filter((team: Team) => {
+            const hasPlayers = team.players && team.players.length > 0
+            const hasRecord = team.record && team.record !== '0-0-0'
+            return hasPlayers || hasRecord
+          })
+
+          if (teamsWithData.length === 0) {
+            console.warn('⚠️ Sync returned teams but all have empty data (0 players, 0-0-0 records). Keeping existing data.')
+            setError('Sync completed but all teams have empty data. This may indicate a parsing issue. Keeping existing data. Check server logs for details.')
+            setIsUpToDate(false)
+            window.dispatchEvent(new CustomEvent('yahooSyncStatus', {
+              detail: {
+                isSyncing: false,
+                isUpToDate: false,
+                error: 'All teams have empty data',
+                teamCount: data.teams.length,
+              }
+            }))
+          } else {
+            // Only clear existing teams if we have valid data to replace them with
+            if (typeof window !== 'undefined') {
+              const { teamManager } = await import('@/lib/teamManager')
+              teamManager.clearAllTeams()
+              console.log('🧹 Cleared all cached teams/stats before applying fresh sync data')
             }
-          }))
+            
+            onTeamsSynced(teamsWithData)
+            setIsUpToDate(true)
+            setSuccess(null) // Clear success message, we'll show up-to-date status instead
+            const syncTime = new Date().toLocaleTimeString()
+            setLastSyncTime(syncTime)
+            // Store the league key and sync time for auto-sync on refresh
+            if (key) {
+              sessionStorage.setItem('yahoo_league_key', key)
+              sessionStorage.setItem('yahoo_last_sync_time', syncTime)
+            }
+            // Dispatch sync status event
+            window.dispatchEvent(new CustomEvent('yahooSyncStatus', {
+              detail: {
+                isSyncing: false,
+                isUpToDate: true,
+                lastSyncTime: syncTime,
+                error: null,
+                teamCount: teamsWithData.length,
+              }
+            }))
+          }
         }
       } else {
         setError('Sync completed but no teams data was returned. Check server logs for details.')
