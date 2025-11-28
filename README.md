@@ -4,6 +4,8 @@
 
 **Status**: ✅ Production Ready - Deployed to Netlify. All core features operational, stats correctly mapped, team records accurate, automatic OAuth sync enabled.
 
+**Latest Update (Nov 28, 2025)**: Fixed stats fetching to use only season-based endpoints (removed date-based fallback that was causing incorrect stats). Stats now correctly reflect 2025-26 NHL season data.
+
 ## Features
 
 ### Core Functionality

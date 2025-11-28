@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
         console.log(`Syncing league: ${leagueKey}`)
 
         // Get league info first to determine the correct season and game key
+        // CRITICAL: We need the season to fetch correct stats (2025-26 NHL = season 2025)
         let leagueSeason: string | undefined = undefined
         let gameKey: string | undefined = undefined
         try {
@@ -120,8 +121,16 @@ export async function POST(request: NextRequest) {
           leagueSeason = leagueInfo.season
           gameKey = leagueInfo.game_key
           console.log(`📊 Extracted season from league: ${leagueSeason || 'not found'}, game_key: ${gameKey || 'not found'}`)
+          
+          if (!leagueSeason) {
+            console.error(`❌ CRITICAL: No season found in league info. Stats may be incorrect.`)
+            console.error(`   League info:`, JSON.stringify(leagueInfo, null, 2))
+          } else {
+            console.log(`✅ Using season ${leagueSeason} for all stat fetches (2025-26 NHL season = 2025)`)
+          }
         } catch (leagueInfoError: any) {
-          console.warn(`⚠️ Could not fetch league info, will try date-based stats:`, leagueInfoError?.message)
+          console.error(`❌ CRITICAL: Could not fetch league info:`, leagueInfoError?.message)
+          console.error(`   Stats fetching will fail without season. This is a critical error.`)
         }
 
         // Fetch stat definitions ONCE before processing any teams
@@ -172,9 +181,13 @@ export async function POST(request: NextRequest) {
         }
 
         // Get roster for each team with season
+        // CRITICAL: Only call getTeamRoster once per team - it fetches both roster AND stats
         const getRoster = async (teamKey: string): Promise<YahooPlayer[]> => {
-          console.log(`Fetching roster for team: ${teamKey} (season: ${leagueSeason})`)
-          return getTeamRoster(accessToken, teamKey, undefined, leagueSeason)
+          console.log(`📊 Fetching roster AND stats for team: ${teamKey} (season: ${leagueSeason || 'not specified'})`)
+          console.log(`📊 This is the ONLY stats fetch for this team - no duplicate calls`)
+          const roster = await getTeamRoster(accessToken, teamKey, undefined, leagueSeason)
+          console.log(`✅ Completed roster+stats fetch for team ${teamKey}: ${roster.length} players`)
+          return roster
         }
 
         // Parse teams into our format

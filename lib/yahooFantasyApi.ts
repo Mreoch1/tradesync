@@ -964,10 +964,12 @@ export async function getTeamRoster(
   
   // Now fetch stats for all players in the roster
   // Yahoo API allows fetching stats for multiple players at once
+  // CRITICAL: This is the ONLY place stats are fetched for this team
   if (players.length > 0) {
     try {
       const playerKeys = players.map(p => p.player_key).filter(key => key) // Filter out any undefined keys
-      console.log(`📊 Fetching stats for ${playerKeys.length} players from team ${teamKey}`)
+      console.log(`📊 Step 2: Fetching stats for ${playerKeys.length} players from team ${teamKey}`)
+      console.log(`📊 Using season=${season || 'not specified'} - this ensures correct 2025-26 season stats`)
       
       if (playerKeys.length === 0) {
         console.warn(`⚠️ No valid player keys found for team ${teamKey}, skipping stats fetch`)
@@ -1010,48 +1012,61 @@ export async function getTeamRoster(
           let statsResponse: any = null
           let statsEndpoint: string = ''
           
+          // CRITICAL: Only use season-based stats endpoint - date-based stats return wrong coverage types
+          // For 2025-26 NHL season, use season=2025
           if (season) {
-            // First try: Use season stats if season is provided
+            // Use season stats endpoint - this is the ONLY endpoint that returns correct season stats
             statsEndpoint = `players;player_keys=${batch.join(',')}/stats;type=season;season=${season}`
-            console.log(`📊 Attempt 1: Requesting stats with season=${season}: ${statsEndpoint.substring(0, 200)}...`)
+            console.log(`📊 Fetching SEASON stats for ${batch.length} players: season=${season}`)
+            console.log(`📊 Endpoint: ${statsEndpoint.substring(0, 150)}...`)
             try {
               statsResponse = await makeApiRequest(statsEndpoint, accessToken)
+              
+              // Validate response has players
+              if (!statsResponse?.fantasy_content?.players) {
+                throw new Error('Response missing fantasy_content.players')
+              }
+              
+              const playerCount = Object.keys(statsResponse.fantasy_content.players).length
+              if (playerCount === 0) {
+                throw new Error('No players in stats response')
+              }
+              
+              console.log(`✅ Successfully fetched season stats for ${playerCount} players (season=${season})`)
             } catch (seasonError: any) {
-              console.warn(`⚠️ Season-based stats failed, trying without season parameter:`, seasonError?.message)
+              console.error(`❌ CRITICAL: Failed to fetch season stats (season=${season}):`, seasonError?.message)
+              console.error(`   This batch will be skipped. Players will not have stats.`)
               statsResponse = null
             }
-          }
-          
-          // Second try: Fetch without season parameter (should return current season stats)
-          if (!statsResponse || !statsResponse.fantasy_content?.players) {
+          } else {
+            // If no season provided, try without season parameter (should return current season)
             statsEndpoint = `players;player_keys=${batch.join(',')}/stats`
-            console.log(`📊 Attempt 2: Requesting stats without season (current season): ${statsEndpoint.substring(0, 200)}...`)
+            console.log(`📊 WARNING: No season provided, fetching stats without season parameter`)
+            console.log(`📊 Endpoint: ${statsEndpoint.substring(0, 150)}...`)
             try {
               statsResponse = await makeApiRequest(statsEndpoint, accessToken)
+              
+              // Validate response
+              if (!statsResponse?.fantasy_content?.players) {
+                throw new Error('Response missing fantasy_content.players')
+              }
+              
+              const playerCount = Object.keys(statsResponse.fantasy_content.players).length
+              if (playerCount === 0) {
+                throw new Error('No players in stats response')
+              }
+              
+              console.log(`✅ Successfully fetched stats for ${playerCount} players (no season specified)`)
             } catch (noSeasonError: any) {
-              console.warn(`⚠️ Stats without season failed, trying date-based:`, noSeasonError?.message)
+              console.error(`❌ CRITICAL: Failed to fetch stats without season:`, noSeasonError?.message)
               statsResponse = null
             }
           }
           
-          // Third try: Use date-based stats (today's date) as fallback
-          // NOTE: Date-based stats might return different coverage types, so we'll filter for season stats
-          if (!statsResponse || !statsResponse.fantasy_content?.players) {
-            const today = new Date().toISOString().split('T')[0].replace(/-/g, '') // YYYYMMDD format for Yahoo
-            statsEndpoint = `players;player_keys=${batch.join(',')}/stats;type=date;date=${today}`
-            console.log(`📊 Attempt 3: Requesting date-based stats (date=${today}): ${statsEndpoint.substring(0, 200)}...`)
-            try {
-              statsResponse = await makeApiRequest(statsEndpoint, accessToken)
-            } catch (dateError: any) {
-              console.error(`❌ All stat fetch attempts failed. Last error:`, dateError?.message)
-              statsResponse = null
-            }
-          }
-          
-          // CRITICAL: If we still don't have a response, log error and skip this batch
+          // CRITICAL: If we don't have a response, skip this batch (don't use date-based fallback)
           if (!statsResponse || !statsResponse.fantasy_content?.players) {
             console.error(`❌ Failed to fetch stats for batch ${Math.floor(i / BATCH_SIZE) + 1}. Skipping this batch.`)
-            console.error(`   Tried: ${season ? `season=${season}, ` : ''}no season, date-based`)
+            console.error(`   Players in this batch will not have stats.`)
             continue // Skip to next batch
           }
           
