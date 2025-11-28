@@ -1,29 +1,25 @@
 # Yahoo OAuth HTTPS Setup Guide
 
-Yahoo Fantasy Sports API **requires HTTPS** for OAuth authentication. This guide shows you how to set up HTTPS for local development using ngrok.
+Yahoo Fantasy Sports API **requires HTTPS** for OAuth authentication. This guide shows you how to set up HTTPS for local development using Cloudflare Tunnel.
 
 ## Why HTTPS is Required
 
 Yahoo's OAuth implementation enforces HTTPS for security. HTTP connections (including `http://localhost`) are blocked. You must use one of these options:
 
-1. **ngrok** (Recommended for local development)
-2. **Cloudflare Tunnel** (Alternative)
-3. **Self-signed SSL certificate** (More complex, not recommended)
+1. **Cloudflare Tunnel** (Recommended for local development - Free, no signup required)
+2. **Production Deployment** (Netlify/Vercel - HTTPS provided automatically)
 
-## Option 1: Using ngrok (Recommended)
+## Local Development: Using Cloudflare Tunnel
 
-### Step 1: Install ngrok
+### Step 1: Install cloudflared
 
+**macOS:**
 ```bash
-npm install -g ngrok
+brew install cloudflare/cloudflare/cloudflared
 ```
 
-Or using Homebrew (macOS):
-```bash
-brew install ngrok
-```
-
-Or download from: https://ngrok.com/download
+**Other platforms:**
+Download from: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/
 
 ### Step 2: Start Your Next.js Development Server
 
@@ -35,33 +31,24 @@ npm run dev
 
 Your app should be running on `http://localhost:3000`
 
-### Step 3: Start ngrok Tunnel
+### Step 3: Start Cloudflare Tunnel
 
 In a **separate** terminal window:
 
 ```bash
-ngrok http 3000
+cloudflared tunnel --url http://localhost:3000
 ```
 
 You'll see output like:
 
 ```
-ngrok
-
-Session Status                online
-Account                       Your Name (Plan: Free)
-Version                       3.x.x
-Region                        United States (us)
-Latency                       45ms
-Web Interface                 http://127.0.0.1:4040
-Forwarding                    https://abc123def456.ngrok.io -> http://localhost:3000
-Forwarding                    http://abc123def456.ngrok.io -> http://localhost:3000
-
-Connections                   ttl     opn     rt1     rt5     p50     p90
-                              0       0       0.00    0.00    0.00    0.00
++--------------------------------------------------------------------------------------------+
+|  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable): |
+|  https://abc123-def456-ghi789.trycloudflare.com                                           |
++--------------------------------------------------------------------------------------------+
 ```
 
-**Important**: Copy the HTTPS URL (e.g., `https://abc123def456.ngrok.io`)
+**Important**: Copy the HTTPS URL (e.g., `https://abc123-def456-ghi789.trycloudflare.com`)
 
 ### Step 4: Update Yahoo Developer App Settings
 
@@ -71,12 +58,12 @@ Connections                   ttl     opn     rt1     rt5     p50     p90
 
    - **Homepage URL**: 
      ```
-     https://abc123def456.ngrok.io
+     https://abc123-def456-ghi789.trycloudflare.com
      ```
 
    - **Redirect URI(s)**: 
      ```
-     https://abc123def456.ngrok.io/api/auth/yahoo/callback
+     https://abc123-def456-ghi789.trycloudflare.com/api/auth/yahoo/callback
      ```
 
 4. Click **Save**
@@ -90,13 +77,13 @@ Update your `.env.local` file:
 YAHOO_CLIENT_ID=your_client_id_here
 YAHOO_CLIENT_SECRET=your_client_secret_here
 
-# Use your ngrok HTTPS URL
-YAHOO_REDIRECT_URI=https://abc123def456.ngrok.io/api/auth/yahoo/callback
+# Use your Cloudflare Tunnel HTTPS URL
+YAHOO_REDIRECT_URI=https://abc123-def456-ghi789.trycloudflare.com/api/auth/yahoo/callback
 
 # Client-side Client ID (same as YAHOO_CLIENT_ID)
 NEXT_PUBLIC_YAHOO_CLIENT_ID=your_client_id_here
 
-# Game Key (418 = NHL 2024-25)
+# Game Key (418 = NHL 2025-26)
 YAHOO_GAME_KEY=418
 ```
 
@@ -112,25 +99,23 @@ npm run dev
 
 ### Step 7: Test OAuth Flow
 
-1. Open your app at the ngrok URL: `https://abc123def456.ngrok.io`
-2. Click "Connect Yahoo Account"
+1. Open your app at the Cloudflare Tunnel URL: `https://abc123-def456-ghi789.trycloudflare.com`
+2. The app will automatically redirect to Yahoo for authentication (no button click required)
 3. Complete OAuth authentication
 4. You should be redirected back with tokens stored
 
 ## Important Notes
 
-### ngrok URLs Change
+### Cloudflare Tunnel URLs Change
 
-- **Free tier**: URLs change every time you restart ngrok
-- **Paid tier**: You can reserve a domain name
+- **Free tier**: URLs change every time you restart cloudflared
+- **Solution**: Update your Yahoo app settings and `.env.local` each time you restart the tunnel
 
-**Solution**: Update your Yahoo app settings and `.env.local` each time you restart ngrok, or use a paid ngrok account for a fixed domain.
+### Keep Cloudflare Tunnel Running
 
-### Keep ngrok Running
-
-- Keep the ngrok terminal window open while developing
-- If ngrok stops, you'll need to:
-  1. Restart ngrok
+- Keep the cloudflared terminal window open while developing
+- If the tunnel stops, you'll need to:
+  1. Restart cloudflared
   2. Get the new URL
   3. Update Yahoo app settings
   4. Update `.env.local`
@@ -138,72 +123,59 @@ npm run dev
 
 ### Testing OAuth
 
-Always test OAuth flows using the ngrok HTTPS URL, not `localhost`.
+Always test OAuth flows using the Cloudflare Tunnel HTTPS URL, not `localhost`.
 
-## Option 2: Cloudflare Tunnel
+## Production Deployment (Netlify)
 
-If you prefer Cloudflare Tunnel over ngrok:
+When deploying to production on Netlify:
 
-```bash
-# Install cloudflared
-brew install cloudflare/cloudflare/cloudflared
+1. **No tunnel needed**: Netlify provides HTTPS automatically
+2. **Update Yahoo App Settings**:
+   - Homepage URL: `https://aitradr.netlify.app`
+   - Redirect URI: `https://aitradr.netlify.app/api/auth/yahoo/callback`
 
-# Start tunnel
-cloudflared tunnel --url http://localhost:3000
-```
+3. **Set Environment Variables** in Netlify:
+   - Go to Site Settings → Environment Variables
+   - Add:
+     ```
+     YAHOO_CLIENT_ID=your_client_id_here
+     YAHOO_CLIENT_SECRET=your_client_secret_here
+     YAHOO_REDIRECT_URI=https://aitradr.netlify.app/api/auth/yahoo/callback
+     NEXT_PUBLIC_YAHOO_CLIENT_ID=your_client_id_here
+     YAHOO_GAME_KEY=418
+     ```
 
-Then use the provided HTTPS URL in the same way as ngrok.
+4. **Trigger a new deployment** after setting environment variables (required for `NEXT_PUBLIC_` variables)
 
-## Option 3: Self-Signed Certificate (Not Recommended)
-
-This is more complex and requires:
-- Generating SSL certificates
-- Configuring Next.js to use HTTPS
-- Browser certificate warnings
-
-Only use this if you already have HTTPS set up locally.
-
-## Production Deployment
-
-When deploying to production (Vercel, Netlify, etc.):
-
-1. **Update Yahoo App Settings**:
-   - Homepage URL: `https://yourdomain.com`
-   - Redirect URI: `https://yourdomain.com/api/auth/yahoo/callback`
-
-2. **Update Environment Variables** in your hosting platform:
-   ```
-   YAHOO_REDIRECT_URI=https://yourdomain.com/api/auth/yahoo/callback
-   ```
-
-3. **Remove ngrok**: You don't need it in production since your hosting platform provides HTTPS automatically.
+5. See [NETLIFY_DEPLOYMENT.md](./NETLIFY_DEPLOYMENT.md) for complete deployment guide
 
 ## Troubleshooting
 
 ### "redirect_uri_mismatch" Error
 
-- Ensure the redirect URI in Yahoo matches exactly what's in `.env.local`
+- Ensure the redirect URI in Yahoo matches exactly what's in `.env.local` or Netlify environment variables
 - Must include the full path: `/api/auth/yahoo/callback`
 - Must use HTTPS (not HTTP)
 
 ### "Invalid redirect URI" Error
 
-- Check that your ngrok URL hasn't changed
+- Check that your Cloudflare Tunnel URL hasn't changed
 - Update both Yahoo app settings and `.env.local`
 - Restart your dev server after changing environment variables
 
 ### OAuth Flow Not Working
 
-1. Verify ngrok is running: Check the ngrok dashboard at `http://127.0.0.1:4040`
-2. Verify HTTPS: Make sure you're using the `https://` ngrok URL, not `http://`
+1. Verify cloudflared is running: Check the terminal output for the HTTPS URL
+2. Verify HTTPS: Make sure you're using the `https://` Cloudflare Tunnel URL, not `http://`
 3. Check environment variables: Ensure `NEXT_PUBLIC_YAHOO_CLIENT_ID` is set
 4. Check browser console: Look for JavaScript errors
+5. For production: Verify environment variables are set in Netlify and trigger a new deployment
 
 ### Token Exchange Fails
 
 - Check server logs for detailed error messages
 - Verify `YAHOO_CLIENT_ID` and `YAHOO_CLIENT_SECRET` are correct
-- Ensure `YAHOO_REDIRECT_URI` matches exactly in both Yahoo and `.env.local`
+- Ensure `YAHOO_REDIRECT_URI` matches exactly in both Yahoo and your environment variables
 
 ## Quick Reference
 
@@ -216,17 +188,8 @@ When deploying to production (Vercel, Netlify, etc.):
 - `YAHOO_CLIENT_SECRET`
 - `YAHOO_REDIRECT_URI`
 - `NEXT_PUBLIC_YAHOO_CLIENT_ID`
+- `YAHOO_GAME_KEY`
 
-## Next Steps
+**Local Development**: Use Cloudflare Tunnel HTTPS URL
 
-Once you have:
-1. ✅ ngrok running with HTTPS URL
-2. ✅ Yahoo app configured with correct redirect URI
-3. ✅ Environment variables set
-
-Share with me:
-- Your ngrok HTTPS URL
-- Screenshot of your Yahoo app summary page
-
-I'll provide the specific endpoints and code needed to complete the integration.
-
+**Production**: Use your Netlify domain (HTTPS provided automatically)

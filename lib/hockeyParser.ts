@@ -229,7 +229,7 @@ function calculateGoalieValueFromStats(stats: any): number {
  */
 function calculateSkaterValueFromStats(stats: any, position?: string): number {
   let value = 0
-  
+
   // Goals
   if (stats.goals !== undefined) {
     value += (stats.goals || 0) * 4.0
@@ -243,7 +243,7 @@ function calculateSkaterValueFromStats(stats: any, position?: string): number {
   // If we have hockeyPoints but not individual G/A, use it
   if (stats.hockeyPoints !== undefined && stats.goals === undefined && stats.hockeyAssists === undefined) {
     value += (stats.hockeyPoints || 0) * 3.4
-  }
+    }
   
   // Power Play Points
   if (stats.ppp !== undefined) {
@@ -253,7 +253,7 @@ function calculateSkaterValueFromStats(stats: any, position?: string): number {
   // Short Handed Points
   if (stats.shp !== undefined) {
     value += (stats.shp || 0) * 2.0
-  }
+    }
   
   // Game Winning Goals
   if (stats.gwg !== undefined) {

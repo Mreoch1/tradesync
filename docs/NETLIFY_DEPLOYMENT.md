@@ -2,7 +2,7 @@
 
 ## Overview
 
-When deploying to Netlify, you **do NOT need ngrok or Cloudflare Tunnel**. Netlify provides HTTPS automatically, so you can use your Netlify URL directly in the Yahoo Developer Portal.
+When deploying to Netlify, you **do NOT need Cloudflare Tunnel**. Netlify provides HTTPS automatically, so you can use your Netlify URL directly in the Yahoo Developer Portal.
 
 ## Prerequisites
 
@@ -40,18 +40,18 @@ netlify deploy --prod
 ## Step 2: Get Your Netlify URL
 
 After deployment, Netlify will provide you with a URL like:
-- `https://aitrader.netlify.app` (for AiTradr)
+- `https://aitradr.netlify.app` (for AiTradr)
 - Or a custom domain if you've configured one
 
-**Note**: Your Netlify URL is permanent and won't change (unlike ngrok/Cloudflare Tunnel URLs).
+**Note**: Your Netlify URL is permanent and won't change (unlike Cloudflare Tunnel URLs which change on restart).
 
 ## Step 3: Update Yahoo Developer Portal
 
 1. Go to [Yahoo Developer Network](https://developer.yahoo.com/apps/)
 2. Find your app and click **"Edit"**
 3. Update the following:
-   - **Homepage URL**: `https://aitrader.netlify.app`
-   - **Redirect URI(s)**: `https://aitrader.netlify.app/api/auth/yahoo/callback`
+   - **Homepage URL**: `https://aitradr.netlify.app`
+   - **Redirect URI(s)**: `https://aitradr.netlify.app/api/auth/yahoo/callback`
      - Add this as a new redirect URI (you can keep your development URLs too)
 4. Click **"Update"** to save
 
@@ -64,27 +64,35 @@ After deployment, Netlify will provide you with a URL like:
 ```
 YAHOO_CLIENT_ID=your_client_id_from_yahoo
 YAHOO_CLIENT_SECRET=your_client_secret_from_yahoo
-YAHOO_REDIRECT_URI=https://aitrader.netlify.app/api/auth/yahoo/callback
+YAHOO_REDIRECT_URI=https://aitradr.netlify.app/api/auth/yahoo/callback
 NEXT_PUBLIC_YAHOO_CLIENT_ID=your_client_id_from_yahoo
 YAHOO_GAME_KEY=418
 ```
 
 **Important Notes**:
-- For AiTradr, use `https://aitrader.netlify.app` as your Netlify URL
+- For AiTradr, use `https://aitradr.netlify.app` as your Netlify URL
 - `NEXT_PUBLIC_` prefix is required for client-side variables in Next.js
+- `NEXT_PUBLIC_*` variables are embedded at build time - after setting them, push a commit to trigger automatic rebuild
 - Never commit these values to your repository
 
 ## Step 5: Redeploy
 
-After adding environment variables, trigger a new deployment:
+After adding environment variables (especially `NEXT_PUBLIC_*` variables), you need to trigger a new build:
 
+**Recommended: Push to Git (Auto-Deploy)**
+- Simply push a commit to your repository
+- Netlify automatically detects the push and triggers a new deployment
+- This is the easiest and most reliable method
+
+**Alternative: Manual Trigger**
 1. Go to **Deploys** tab in Netlify
 2. Click **"Trigger deploy"** → **"Deploy site"**
-   - Or push a new commit to your repository
+
+**Important**: `NEXT_PUBLIC_*` environment variables are embedded at build time, so a new build is required after setting or changing them.
 
 ## Step 6: Test Your Deployment
 
-1. Visit your Netlify URL: `https://aitrader.netlify.app`
+1. Visit your Netlify URL: `https://aitradr.netlify.app`
 2. Click **"Connect Yahoo Account"** (or similar button)
 3. You should be redirected to Yahoo for authentication
 4. After authorizing, you should be redirected back to your app
@@ -93,10 +101,11 @@ After adding environment variables, trigger a new deployment:
 
 | Local Development | Netlify Production |
 |------------------|-------------------|
-| Uses ngrok/Cloudflare Tunnel | Uses Netlify's HTTPS |
+| Uses Cloudflare Tunnel | Uses Netlify's HTTPS |
 | URL changes on restart | Permanent URL |
 | `.env.local` file | Environment variables in Netlify dashboard |
-| `npm run dev` | Automatic builds on git push |
+| `npm run dev` | Automatic builds on git push (auto-deploy) |
+| Manual rebuild required | Push to git triggers automatic rebuild |
 
 ## Troubleshooting
 
@@ -140,8 +149,8 @@ If you have a custom domain:
 
 - ✅ Your app is now live on Netlify
 - ✅ HTTPS is automatically provided
-- ✅ No need for ngrok/Cloudflare Tunnel
+- ✅ No need for Cloudflare Tunnel
 - ✅ URL is permanent (won't change)
 
-You can continue developing locally with ngrok/Cloudflare Tunnel, but your production app on Netlify doesn't need it!
+You can continue developing locally with Cloudflare Tunnel, but your production app on Netlify doesn't need it!
 

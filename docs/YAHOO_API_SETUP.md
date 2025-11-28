@@ -37,13 +37,13 @@ The Yahoo Fantasy Sports API allows you to programmatically access:
 
 **Yahoo requires HTTPS for OAuth authentication.** HTTP (including `http://localhost`) is blocked.
 
-See **[YAHOO_HTTPS_SETUP.md](./YAHOO_HTTPS_SETUP.md)** for detailed instructions on setting up HTTPS locally using ngrok.
+See **[YAHOO_HTTPS_SETUP.md](./YAHOO_HTTPS_SETUP.md)** for detailed instructions on setting up HTTPS locally using Cloudflare Tunnel.
 
 **Quick start:**
-1. Install ngrok: `npm install -g ngrok`
+1. Install cloudflared: `brew install cloudflare/cloudflare/cloudflared`
 2. Start your app: `npm run dev`
-3. In another terminal: `ngrok http 3000`
-4. Copy the HTTPS URL (e.g., `https://abc123.ngrok.io`)
+3. In another terminal: `cloudflared tunnel --url http://localhost:3000`
+4. Copy the HTTPS URL (e.g., `https://abc123-def456-ghi789.trycloudflare.com`)
 
 ## Step 3: Configure Environment Variables
 
@@ -56,7 +56,7 @@ YAHOO_CLIENT_SECRET=your_client_secret_from_yahoo
 
 # Redirect URI (must match what you configured in Yahoo Developer Portal)
 # IMPORTANT: Yahoo requires HTTPS - see YAHOO_HTTPS_SETUP.md for local development
-YAHOO_REDIRECT_URI=https://your-ngrok-url.ngrok.io/api/auth/yahoo/callback
+YAHOO_REDIRECT_URI=https://your-cloudflare-tunnel-url.trycloudflare.com/api/auth/yahoo/callback
 
 # Game Key (418 = NHL 2024-25 season)
 YAHOO_GAME_KEY=418

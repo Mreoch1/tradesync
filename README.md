@@ -2,7 +2,7 @@
 
 **AiTradr** - A professional-grade web application for analyzing and evaluating fantasy sports trades across multiple sports (NFL, NBA, MLB, NHL). Make informed trade decisions with detailed value analysis, projections, and recommendations. Features real-time Yahoo Fantasy Sports synchronization and advanced trade analytics.
 
-**Status**: ✅ Stable Development Version - All core features operational, stats correctly mapped, team records accurate.
+**Status**: ✅ Production Ready - Deployed to Netlify. All core features operational, stats correctly mapped, team records accurate, automatic OAuth sync enabled.
 
 ## Features
 
@@ -27,7 +27,9 @@
 - **Multi-Factor Evaluation**: Considers value, projections, and roster quality
 
 ### Yahoo Fantasy Sports Features
-- **Automatic Synchronization**: Auto-syncs to your league on page load
+- **Automatic OAuth Flow**: OAuth authentication initiates automatically on page load (no button click required)
+- **Automatic Synchronization**: Auto-syncs to your league on page load and when returning to the tab
+- **Real-Time Sync Status**: Visual indicator shows connection status, team count, and last sync time
 - **Comprehensive Player Statistics**: Full season stats displayed in Yahoo-style format
   - **Skater Stats**: G, A, P, +/-, PIM, PPP, SHP, GWG, SOG, FW, HIT, BLK
   - **Goalie Stats**: GS, W, L, GA, GAA, SV, SA, SV%, SHO
@@ -49,8 +51,8 @@
 
 - Node.js 18+ 
 - npm or yarn
-- **For Local Development**: Cloudflare Tunnel or ngrok (required for Yahoo API OAuth HTTPS)
-- **For Production (Netlify/Vercel)**: No tunnel needed - hosting platform provides HTTPS automatically
+- **For Local Development**: Cloudflare Tunnel (required for Yahoo API OAuth HTTPS)
+- **For Production (Netlify)**: No tunnel needed - hosting platform provides HTTPS automatically
 
 ### Installation
 
@@ -59,9 +61,9 @@
 npm install
 ```
 
-2. **Set up HTTPS tunnel** (required for Yahoo OAuth):
+2. **Set up HTTPS tunnel** (required for Yahoo OAuth in local development):
    
-   **Option A: Cloudflare Tunnel (Recommended - Free, no signup required)**
+   **Cloudflare Tunnel (Recommended - Free, no signup required)**
    ```bash
    # Install cloudflared (if not already installed)
    brew install cloudflare/cloudflare/cloudflared
@@ -71,16 +73,7 @@ npm install
    ```
    - Copy your Cloudflare Tunnel HTTPS URL (e.g., `https://abc123.trycloudflare.com`)
    - **Note**: Cloudflare Tunnel URLs change each time you restart it
-   
-   **Option B: ngrok (Alternative)**
-   ```bash
-   # Sign up for a free account at https://dashboard.ngrok.com/signup
-   # Get your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
-   ngrok config add-authtoken YOUR_AUTHTOKEN_HERE
-   ngrok http 3000
-   ```
-   - Copy your ngrok HTTPS URL (e.g., `https://abc123.ngrok-free.dev`)
-   - **Note**: ngrok free tier URLs change each time you restart it
+   - Update your Yahoo Developer Portal redirect URI when the URL changes
 
 3. (Optional) Create a `.env.local` file from `.env.local.example`:
 ```bash
@@ -94,11 +87,12 @@ npm run dev
 
 5. Access your application:
    
-   **For Local Development**: Use your tunnel URL (Cloudflare or ngrok)
+   **For Local Development**: Use your Cloudflare Tunnel HTTPS URL
+   - Local: [http://localhost:3000](http://localhost:3000) (OAuth won't work on localhost)
+   - Public (via tunnel): Use your Cloudflare Tunnel HTTPS URL
    
    **For Production Deployment**: See [NETLIFY_DEPLOYMENT.md](./docs/NETLIFY_DEPLOYMENT.md)
-   - Local: [http://localhost:3000](http://localhost:3000)
-   - Public (via tunnel): Use your Cloudflare Tunnel or ngrok HTTPS URL
+   - Production: [https://aitradr.netlify.app](https://aitradr.netlify.app)
 
 ## Project Structure
 
@@ -163,19 +157,14 @@ fantasy-sports-trade-analyzer/
 
 ### Starting the Application
 
-1. Start HTTPS tunnel (required for Yahoo API):
+1. Start HTTPS tunnel (required for Yahoo API OAuth):
    
    **Cloudflare Tunnel:**
    ```bash
    cloudflared tunnel --url http://localhost:3000
    ```
    
-   **Or ngrok:**
-   ```bash
-   ngrok http 3000
-   ```
-   
-   Note your tunnel HTTPS URL for configuration.
+   Note your Cloudflare Tunnel HTTPS URL for configuration.
 
 2. Start the development server:
    ```bash
@@ -183,8 +172,8 @@ fantasy-sports-trade-analyzer/
    ```
 
 3. Access the application:
-   - Local: [http://localhost:3000](http://localhost:3000)
-   - Public (via tunnel): Use your Cloudflare Tunnel or ngrok HTTPS URL
+   - Local: [http://localhost:3000](http://localhost:3000) (OAuth won't work on localhost)
+   - Public (via tunnel): Use your Cloudflare Tunnel HTTPS URL
 
 ### Available Scripts
 
@@ -304,14 +293,17 @@ The app uses Tailwind CSS. Modify `tailwind.config.js` to customize the design s
 The application supports automatic team and player data synchronization from Yahoo Fantasy Sports leagues. This eliminates the need for manual data entry and ensures your trade analysis uses real-time roster information with comprehensive player statistics.
 
 **Key Features:**
-- **Automatic Authentication**: OAuth flow initiates automatically on first visit
-- **Auto-Sync**: Automatically syncs to your "atfh2" league (or saved league) on page load
+- **Automatic Authentication**: OAuth flow initiates automatically on first visit (no button click required)
+- **Auto-Sync**: Automatically syncs to your "atfh2" league (or saved league) on page load and when returning to the tab
+- **Sync Status Indicator**: Real-time visual feedback showing connection status, team count, and last sync time
 - **Comprehensive Stats**: Full season statistics displayed in Yahoo-style table format
 - **Real-Time Data**: Teams, rosters, and player stats are fetched directly from Yahoo Fantasy Sports API
 - **Player Value Calculation**: Values calculated based on actual stats, rank, and ownership data
 - **Automatic Cache Clearing**: Stats cache is automatically cleared before each sync to ensure fresh data
 
-**Important**: Yahoo OAuth requires HTTPS, so all traffic must go through a tunnel (Cloudflare Tunnel or ngrok). The application is configured to use the tunnel for all Yahoo API interactions.
+**Important**: 
+- **Local Development**: Yahoo OAuth requires HTTPS, so use Cloudflare Tunnel for local development
+- **Production (Netlify)**: HTTPS is provided automatically by Netlify - no tunnel needed
 
 **Current Status (v1.0.0 - Stable Dev):**
 - ✅ Team rosters and player data sync working
@@ -324,21 +316,16 @@ The application supports automatic team and player data synchronization from Yah
 
 ### Setup Instructions
 
-1. **Set up HTTPS tunnel** (if not already done):
+1. **Set up HTTPS tunnel** (for local development only):
    
-   **Cloudflare Tunnel (Recommended):**
+   **Cloudflare Tunnel:**
    ```bash
    cloudflared tunnel --url http://localhost:3000
    ```
    - Copy your Cloudflare Tunnel HTTPS URL (e.g., `https://abc123.trycloudflare.com`)
+   - **Important**: Tunnel URLs change each time you restart. Update your Yahoo app settings whenever the URL changes.
    
-   **Or ngrok:**
-   ```bash
-   ngrok http 3000
-   ```
-   - Copy your ngrok HTTPS URL (e.g., `https://abc123.ngrok-free.dev`)
-   
-   **Important**: Tunnel URLs change each time you restart. Update your Yahoo app settings whenever the URL changes.
+   **For Production (Netlify)**: No tunnel needed - see [NETLIFY_DEPLOYMENT.md](./docs/NETLIFY_DEPLOYMENT.md)
 
 2. **Register a Yahoo Developer Application**:
    - Go to [Yahoo Developer Network](https://developer.yahoo.com/apps/)
@@ -347,11 +334,11 @@ The application supports automatic team and player data synchronization from Yah
      - Application Name: Your app name
      - Application Type: Web Application
      - Homepage URL: 
-       - **Local Dev**: Your tunnel HTTPS URL (e.g., `https://abc123.trycloudflare.com`)
-       - **Production**: Your Netlify/Vercel URL (e.g., `https://your-app.netlify.app`)
+       - **Local Dev**: Your Cloudflare Tunnel HTTPS URL (e.g., `https://abc123.trycloudflare.com`)
+       - **Production**: Your Netlify URL (e.g., `https://aitradr.netlify.app`)
      - Redirect URI(s): 
        - **Local Dev**: `https://YOUR_TUNNEL_URL/api/auth/yahoo/callback`
-       - **Production**: `https://YOUR_NETLIFY_URL/api/auth/yahoo/callback`
+       - **Production**: `https://aitradr.netlify.app/api/auth/yahoo/callback`
        - You can add multiple redirect URIs (one for dev, one for production)
      - Description: Fantasy Sports Trade Analyzer integration
    - Request access to "Fantasy Sports" API
@@ -370,10 +357,10 @@ The application supports automatic team and player data synchronization from Yah
    ```
 
    **Note**: 
-   - **Local Dev**: Replace `YOUR_TUNNEL_URL` with your actual tunnel domain (Cloudflare or ngrok)
-   - **Production (Netlify)**: Replace with your Netlify URL (e.g., `https://your-app.netlify.app`)
+   - **Local Dev**: Replace `YOUR_TUNNEL_URL` with your actual Cloudflare Tunnel domain
+   - **Production (Netlify)**: Use `https://aitradr.netlify.app` - set these in Netlify's environment variables (not `.env.local`)
    - The `NEXT_PUBLIC_` prefix is required for client-side environment variables in Next.js
-   - For production, set these in your hosting platform's environment variables (not `.env.local`)
+   - **Important**: After setting `NEXT_PUBLIC_` environment variables in Netlify, push a commit to git to trigger an automatic rebuild (Netlify auto-deploys on git push)
    - See [NETLIFY_DEPLOYMENT.md](./docs/NETLIFY_DEPLOYMENT.md) for production deployment guide
 
 4. **Find Your Game Key**:
@@ -386,9 +373,10 @@ The application supports automatic team and player data synchronization from Yah
 The Yahoo sync feature works automatically:
 
 1. **Automatic Authentication**: 
-   - On first visit, the app automatically redirects to Yahoo for authentication
+   - On first visit, the app automatically redirects to Yahoo for authentication (no button click required)
    - Log in to your Yahoo account and authorize the application
    - You'll be redirected back to the app with tokens stored
+   - OAuth flow also triggers when returning to the tab if not authenticated
 
 2. **Automatic League Sync**:
    - After authentication, the app automatically finds your "atfh2" league
@@ -397,11 +385,17 @@ The Yahoo sync feature works automatically:
 
 3. **Automatic Team & Player Sync**:
    - Teams and rosters are automatically synced on page load
+   - Sync also triggers when returning to the tab (visibility change detection)
    - **Cache is automatically cleared** before each sync to ensure fresh data
    - Player statistics are fetched for the 2025-26 season
    - Stats include: G, A, P, +/-, PIM, PPP, SHP, GWG, SOG, FW, HIT, BLK (skaters)
    - Goalie stats: GS, W, L, GA, GAA, SV, SA, SV%, SHO
    - Ownership stats: % Start, % Ros
+
+4. **Sync Status Indicator**:
+   - Visual indicator in the header shows real-time connection status
+   - Displays team count and last sync time
+   - Color-coded status: Not Connected, Syncing, Synced, Error, Needs Sync
 
 4. **Viewing Teams & Players**:
    - Navigate to any team page to see all players with full statistics
@@ -447,12 +441,13 @@ The application uses OAuth2 authorization code flow with automatic initiation:
 - Restart your development server after adding environment variables
 
 **"Failed to authenticate"**:
-- Ensure your tunnel is running (Cloudflare Tunnel or ngrok)
+- Ensure your Cloudflare Tunnel is running (local dev only)
 - Check that your redirect URI in `.env.local` matches exactly what's configured in your Yahoo app
-- Verify your tunnel URL hasn't changed (free tunnel URLs change on restart)
+- Verify your tunnel URL hasn't changed (Cloudflare Tunnel URLs change on restart)
 - Update both Yahoo app settings and `.env.local` if the tunnel URL changed
 - Ensure you've requested and received approval for Fantasy Sports API access
 - Make sure you're accessing the app through the tunnel HTTPS URL, not localhost
+- **For production**: Verify environment variables are set in Netlify, then push a commit to git to trigger automatic rebuild (Netlify auto-deploys on git push)
 
 **"No leagues found"**:
 - Verify you're using the correct game key for your sport/season

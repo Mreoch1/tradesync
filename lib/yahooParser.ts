@@ -319,14 +319,14 @@ function parsePlayerStats(
       if (svpStatId) {
         const svpValue = statsMap[svpStatId]
         stats.svp = svpValue > 1 ? svpValue / 100 : svpValue
-      } else if (statsMap['19'] !== undefined) {
-        // Fallback: Use Yahoo's value but normalize
-        const svpValue = statsMap['19']
+    } else if (statsMap['19'] !== undefined) {
+      // Fallback: Use Yahoo's value but normalize
+      const svpValue = statsMap['19']
         stats.svp = svpValue > 1 ? svpValue / 100 : svpValue
       } else if (statsMap['26'] !== undefined) {
         const svpValue = statsMap['26']
-        stats.svp = svpValue > 1 ? svpValue / 100 : svpValue
-      }
+      stats.svp = svpValue > 1 ? svpValue / 100 : svpValue
+    }
     }
     
     // Shutouts (SHO) - try stat definitions first, then fallback to multiple possible stat_ids

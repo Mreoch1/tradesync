@@ -1125,11 +1125,11 @@ export async function getTeamRoster(
               console.warn(`⚠️ Skipping ${coverageType} stats for ${playerKey} - only using season stats`)
               playerStats = null
             } else {
-              playerStats = {
-                coverage_type: coverageType,
-                coverage_value: statsData.coverage_value || 2025,
-                stats: statsData.stats
-              }
+            playerStats = {
+              coverage_type: coverageType,
+              coverage_value: statsData.coverage_value || 2025,
+              stats: statsData.stats
+            }
               console.log(`✅ Found SEASON stats array in object for ${playerKey}: ${statsData.stats.length} stats, coverage_type="${coverageType}"`)
             }
           }

@@ -4,14 +4,14 @@
 
 | Aspect | Local Development | Production (Netlify/Vercel) |
 |--------|------------------|---------------------------|
-| **HTTPS** | ngrok/Cloudflare Tunnel required | Automatic (provided by platform) |
+| **HTTPS** | Cloudflare Tunnel required | Automatic (provided by platform) |
 | **URL** | Changes on restart | Permanent |
 | **Environment Variables** | `.env.local` file | Platform dashboard |
 | **Setup** | Manual tunnel setup | Automatic HTTPS |
 
-## Quick Answer: Do I Need ngrok?
+## Quick Answer: Do I Need a Tunnel?
 
-- **Local Development**: ✅ Yes, you need ngrok or Cloudflare Tunnel
+- **Local Development**: ✅ Yes, you need Cloudflare Tunnel
 - **Production (Netlify/Vercel)**: ❌ No, hosting platform provides HTTPS automatically
 
 ## Netlify Deployment

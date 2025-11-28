@@ -28,9 +28,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { action, leagueKey, gameKey = '418', tokens } = body
 
+    // Log request details for debugging
+    console.log('📡 API Sync Request:', {
+      action,
+      leagueKey: leagueKey ? `${leagueKey.substring(0, 20)}...` : 'none',
+      gameKey,
+      hasTokens: !!tokens,
+      hasAccessToken: !!(tokens?.access_token),
+    })
+
     if (!tokens || !tokens.access_token) {
+      console.error('❌ Missing access token in request')
       return NextResponse.json(
-        { error: 'Missing access token. Please authenticate first.' },
+        { error: 'Missing access token. Please authenticate with Yahoo first by completing the OAuth flow.' },
         { status: 401 }
       )
     }
@@ -38,9 +48,11 @@ export async function POST(request: NextRequest) {
     // Check and refresh token if needed
     let accessToken = tokens.access_token
     if (isTokenExpired(tokens)) {
+      console.log('🔄 Token expired, attempting refresh...')
       if (!tokens.refresh_token) {
+        console.error('❌ No refresh token available')
         return NextResponse.json(
-          { error: 'Token expired and no refresh token available' },
+          { error: 'Token expired and no refresh token available. Please re-authenticate with Yahoo.' },
           { status: 401 }
         )
       }
@@ -48,9 +60,15 @@ export async function POST(request: NextRequest) {
       const clientId = process.env.YAHOO_CLIENT_ID
       const clientSecret = process.env.YAHOO_CLIENT_SECRET
 
+      console.log('🔍 Server-side credentials check:', {
+        hasClientId: !!clientId,
+        hasClientSecret: !!clientSecret,
+      })
+
       if (!clientId || !clientSecret) {
+        console.error('❌ Missing server-side OAuth credentials')
         return NextResponse.json(
-          { error: 'Yahoo OAuth credentials not configured' },
+          { error: 'Yahoo OAuth credentials not configured on server. Please set YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET in Netlify environment variables.' },
           { status: 500 }
         )
       }

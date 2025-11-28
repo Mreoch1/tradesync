@@ -112,16 +112,27 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
     console.log('🔍 Debug - NEXT_PUBLIC_YAHOO_CLIENT_ID:', clientId ? `Set (length: ${clientId.length})` : 'NOT SET')
     console.log('🔍 Debug - Client ID value (first 20 chars):', clientId ? clientId.substring(0, 20) + '...' : 'N/A')
     console.log('🔍 Debug - process.env keys:', Object.keys(process.env).filter(k => k.includes('YAHOO')))
+    console.log('🔍 Debug - Current URL:', typeof window !== 'undefined' ? window.location.href : 'N/A')
+    console.log('🔍 Debug - Window origin:', typeof window !== 'undefined' ? window.location.origin : 'N/A')
     
     if (!clientId) {
-      setError('Yahoo Client ID not configured. Please set NEXT_PUBLIC_YAHOO_CLIENT_ID environment variable in Netlify and trigger a new deployment.')
+      const errorMsg = `Yahoo Client ID not configured.
+
+For Netlify:
+1. Go to Site Settings → Environment Variables
+2. Add NEXT_PUBLIC_YAHOO_CLIENT_ID with your Yahoo Client ID
+3. Trigger a new deployment (push a commit or use "Trigger deploy" in Netlify)
+4. Wait for build to complete
+
+Note: NEXT_PUBLIC_ variables are embedded at build time, so a rebuild is required.`
+      setError(errorMsg)
       return
     }
 
     // Trim whitespace from client ID (in case it was set with extra spaces)
     const trimmedClientId = clientId.trim()
     if (trimmedClientId.length === 0) {
-      setError('Yahoo Client ID is empty. Please check your Netlify environment variables.')
+      setError('Yahoo Client ID is empty. Please check your Netlify environment variables and ensure there are no extra spaces.')
       return
     }
 
@@ -146,22 +157,31 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
       return
     }
     
-    // Validate redirect URI matches what's configured in Yahoo (exact match required)
-    const expectedRedirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
-    if (redirectUri !== expectedRedirectUri) {
-      console.warn(`⚠️ Redirect URI mismatch! Expected: ${expectedRedirectUri}, Got: ${redirectUri}`)
-      setError(`Redirect URI mismatch. Please access the app from https://aitradr.netlify.app`)
-      return
-    }
+    // Log redirect URI for debugging (don't block - let Yahoo validate it)
+    console.log('🔍 OAuth Redirect URI:', redirectUri)
+    console.log('🔍 Current window location:', window.location.href)
+    
+    // Note: Yahoo will validate the redirect URI matches what's configured in their portal
+    // We don't need to block here - if it doesn't match, Yahoo will return an error
     
     try {
       const authUrl = getAuthorizationUrl(trimmedClientId, redirectUri)
       console.log('🔄 Redirecting to Yahoo OAuth:', authUrl.substring(0, 100) + '...')
+      console.log('🔄 Full OAuth URL:', authUrl)
+      console.log('🔄 Make sure this redirect URI is configured in Yahoo Developer Portal:', redirectUri)
+      
       // Redirect to Yahoo for authentication
       window.location.href = authUrl
     } catch (err: any) {
       console.error('❌ Failed to generate OAuth URL:', err)
-      setError(err.message || 'Failed to start OAuth authentication')
+      const errorMsg = `Failed to start OAuth authentication: ${err.message || 'Unknown error'}
+
+Troubleshooting:
+1. Check browser console for detailed errors
+2. Verify NEXT_PUBLIC_YAHOO_CLIENT_ID is set in Netlify
+3. Ensure redirect URI matches Yahoo Developer Portal exactly
+4. Make sure you're accessing via HTTPS (not localhost)`
+      setError(errorMsg)
     }
   }
 
@@ -242,6 +262,7 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
         }
       }))
 
+      console.log('🔄 Starting sync request for league:', key)
       const response = await fetch('/api/yahoo/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,10 +274,21 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
         }),
       })
 
-      const data = await response.json()
+      console.log('📡 Sync response status:', response.status, response.statusText)
+
+      let data
+      try {
+        data = await response.json()
+      } catch (parseError) {
+        const text = await response.text()
+        console.error('❌ Failed to parse response as JSON:', text)
+        throw new Error(`Server returned invalid response (${response.status}): ${text.substring(0, 200)}`)
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to sync league')
+        const errorMsg = data.error || `HTTP ${response.status}: ${response.statusText}`
+        console.error('❌ Sync failed:', errorMsg)
+        throw new Error(errorMsg)
       }
 
       if (data.action === 'token_refreshed') {
@@ -316,8 +348,31 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to sync league'
-      console.error('Sync error details:', err)
-      setError(`Error syncing league: ${errorMessage}. Check browser console and server logs for more details.`)
+      console.error('❌ Sync error details:', err)
+      console.error('❌ Error stack:', err.stack)
+      
+      // Provide more helpful error messages
+      let userFriendlyError = errorMessage
+      if (errorMessage.includes('401') || errorMessage.includes('authentication') || errorMessage.includes('token')) {
+        userFriendlyError = `Authentication failed: ${errorMessage}
+
+Please try:
+1. Clear your browser's session storage
+2. Refresh the page to re-authenticate
+3. Complete the Yahoo OAuth flow again`
+      } else if (errorMessage.includes('500') || errorMessage.includes('server')) {
+        userFriendlyError = `Server error: ${errorMessage}
+
+This may indicate:
+1. Yahoo API is temporarily unavailable
+2. Server-side configuration issue (check Netlify environment variables)
+3. Network connectivity problem`
+      }
+      
+      setError(`Error syncing league: ${userFriendlyError}
+
+Check browser console (F12) and Netlify function logs for more details.`)
+      
       // Dispatch sync status event - error
       window.dispatchEvent(new CustomEvent('yahooSyncStatus', {
         detail: {

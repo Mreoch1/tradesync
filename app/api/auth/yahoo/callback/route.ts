@@ -17,15 +17,15 @@ export async function GET(request: NextRequest) {
 
   // Extract the actual URL from environment or request headers
   // For Netlify production, use the environment variable
-  // For local dev (ngrok/Cloudflare), use the request origin
+  // For local dev (Cloudflare Tunnel), use the request origin
   let baseUrl = process.env.YAHOO_REDIRECT_URI 
     ? process.env.YAHOO_REDIRECT_URI.replace('/api/auth/yahoo/callback', '')
     : null
   
-  // If not in env, try to get from Host header (ngrok/Cloudflare Tunnel sets this)
+  // If not in env, try to get from Host header (Cloudflare Tunnel sets this)
   if (!baseUrl) {
     const host = request.headers.get('host') || request.headers.get('x-forwarded-host')
-    if (host && (host.includes('ngrok') || host.includes('trycloudflare.com'))) {
+    if (host && host.includes('trycloudflare.com')) {
       baseUrl = `https://${host}`
     } else {
       // Fallback to request origin (should be Netlify URL in production)
