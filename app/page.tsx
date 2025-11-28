@@ -31,17 +31,20 @@ export default function Home() {
       window.removeEventListener('teamsUpdated', handleTeamsUpdate)
       window.removeEventListener('teamsStorageUpdated', handleTeamsUpdate)
     }
+  }, [])
 
+  useEffect(() => {
     // Load trade block from sessionStorage
-    const saved = sessionStorage.getItem('tradeBlock')
-    if (saved) {
-      try {
-        // TypeScript doesn't narrow sessionStorage.getItem properly, so we assert non-null
-        const parsed = JSON.parse(saved) as Player[]
-        setTradeBlock(parsed)
-      } catch (e) {
-        console.error('Error loading trade block:', e)
+    try {
+      const saved = sessionStorage.getItem('tradeBlock')
+      if (!saved) {
+        // nothing stored yet
+        return
       }
+      const parsed = JSON.parse(saved) as Player[]
+      setTradeBlock(parsed)
+    } catch (e) {
+      console.error('Error loading trade block:', e)
     }
 
     // Listen for trade block updates
