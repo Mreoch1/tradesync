@@ -111,15 +111,37 @@ export async function POST(request: NextRequest) {
 
         console.log(`Syncing league: ${leagueKey}`)
 
-        // Get league info first to determine the correct season
+        // Get league info first to determine the correct season and game key
         let leagueSeason: string | undefined = undefined
+        let gameKey: string | undefined = undefined
         try {
           const { getLeagueInfo } = await import('@/lib/yahooFantasyApi')
           const leagueInfo = await getLeagueInfo(accessToken, leagueKey)
           leagueSeason = leagueInfo.season
-          console.log(`📊 Extracted season from league: ${leagueSeason || 'not found'}`)
+          gameKey = leagueInfo.game_key
+          console.log(`📊 Extracted season from league: ${leagueSeason || 'not found'}, game_key: ${gameKey || 'not found'}`)
         } catch (leagueInfoError: any) {
           console.warn(`⚠️ Could not fetch league info, will try date-based stats:`, leagueInfoError?.message)
+        }
+
+        // Fetch stat definitions ONCE before processing any teams
+        // This ensures all player parsing has access to stat definitions
+        if (gameKey) {
+          try {
+            const { getStatDefinitions } = await import('@/lib/yahooFantasyApi')
+            const { setStatDefinitions } = await import('@/lib/yahooParser')
+            const statDefinitions = await getStatDefinitions(accessToken, gameKey)
+            if (Object.keys(statDefinitions).length > 0) {
+              console.log(`📊 Loaded ${Object.keys(statDefinitions).length} stat definitions for all players`)
+              setStatDefinitions(statDefinitions)
+            } else {
+              console.warn(`⚠️ Stat definitions returned empty - player stats may be incorrect`)
+            }
+          } catch (defError: any) {
+            console.warn(`⚠️ Could not fetch stat definitions:`, defError?.message)
+          }
+        } else {
+          console.warn(`⚠️ No game_key found - cannot fetch stat definitions. Player stats may be incorrect.`)
         }
 
         // Get teams

@@ -461,9 +461,9 @@ export async function getLeagueInfo(accessToken: string, leagueKey: string): Pro
  * Get all teams in a league
  */
 export async function getLeagueTeams(accessToken: string, leagueKey: string): Promise<YahooTeam[]> {
-  // Request teams with standings subresource to ensure we get win/loss/tie records
-  // Format: league/{leagueKey}/teams;out=standings
-  const response = await makeApiRequest(`league/${leagueKey}/teams;out=standings`, accessToken)
+  // Request teams - Yahoo API includes standings in the teams response by default
+  // If standings are missing, we'll fetch them separately as a fallback
+  const response = await makeApiRequest(`league/${leagueKey}/teams`, accessToken)
   
   const responseStr = response ? JSON.stringify(response, null, 2) : 'undefined'
   console.log('Raw getLeagueTeams response structure:', responseStr.substring(0, 1500))
@@ -619,7 +619,7 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
       }
     }
     
-    // Get standings - check multiple possible locations
+    // Get standings - check multiple possible locations in Yahoo API response
     let wins = 0, losses = 0, ties = 0
     
     // Log full teamArray structure for first team to understand the data structure
@@ -628,10 +628,13 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
       console.log(`   teamArray length:`, teamArray.length)
       teamArray.forEach((item, idx) => {
         if (item && typeof item === 'object') {
-          console.log(`   teamArray[${idx}] keys:`, Object.keys(item).join(', '))
+          const keys = Array.isArray(item) ? `[array with ${item.length} items]` : Object.keys(item).join(', ')
+          console.log(`   teamArray[${idx}] keys:`, keys)
           if (idx === 2) {
-            console.log(`   teamArray[2] full:`, JSON.stringify(item, null, 2).substring(0, 1000))
+            console.log(`   teamArray[2] full:`, JSON.stringify(item, null, 2).substring(0, 2000))
           }
+        } else {
+          console.log(`   teamArray[${idx}] type:`, typeof item, item)
         }
       })
     }
@@ -641,7 +644,7 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
     let standings = teamArray[2]?.team_standings
     let outcomeTotals = standings?.outcome_totals
     
-    // Location 2: teamArray[2] directly
+    // Location 2: teamArray[2] directly (if it's the standings object)
     if (!standings || (typeof standings === 'object' && Object.keys(standings).length === 0)) {
       standings = teamArray[2]
       outcomeTotals = standings?.outcome_totals
@@ -654,6 +657,18 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
         standings = standingsInArray.team_standings || standingsInArray
         outcomeTotals = standings?.outcome_totals || standingsInArray.outcome_totals
       }
+      // Also check if any item in the array has wins/losses/ties directly
+      for (const item of teamArray[2]) {
+        if (item && typeof item === 'object' && (item.wins !== undefined || item.losses !== undefined)) {
+          wins = parseInt(item.wins || item.win || '0') || 0
+          losses = parseInt(item.losses || item.loss || '0') || 0
+          ties = parseInt(item.ties || item.tie || '0') || 0
+          if (wins > 0 || losses > 0 || ties > 0) {
+            console.log(`📊 Found record in teamArray[2] array item: W=${wins}, L=${losses}, T=${ties}`)
+            break
+          }
+        }
+      }
     }
     
     // Location 4: Check teamData directly
@@ -664,8 +679,16 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
       console.log(`📊 Found record in teamData: W=${wins}, L=${losses}, T=${ties}`)
     }
     
+    // Location 5: Check teamArray[1] for standings (sometimes standings are in managers section)
+    if ((wins === 0 && losses === 0 && ties === 0) && teamArray[1]) {
+      if (teamArray[1].team_standings) {
+        standings = teamArray[1].team_standings
+        outcomeTotals = standings?.outcome_totals
+      }
+    }
+    
     // Extract from standings structure
-    if (standings && typeof standings === 'object') {
+    if (standings && typeof standings === 'object' && !Array.isArray(standings)) {
       // Check for nested structure: standings.outcome_totals
       if (standings.outcome_totals) {
         const ot = standings.outcome_totals
@@ -697,7 +720,7 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
         console.log(`   teamArray[2] keys:`, typeof teamArray[2] === 'object' && !Array.isArray(teamArray[2]) ? Object.keys(teamArray[2]).join(', ') : 'N/A')
       }
       const standingsStr = standings ? JSON.stringify(standings, null, 2) : 'undefined'
-      console.log(`   standings:`, standingsStr.substring(0, 500))
+      console.log(`   standings:`, standingsStr.substring(0, 1000))
       const outcomeTotalsStr = outcomeTotals ? JSON.stringify(outcomeTotals, null, 2) : 'undefined'
       console.log(`   outcomeTotals:`, outcomeTotalsStr)
       console.log(`   Final extracted: W=${wins}, L=${losses}, T=${ties}`)
@@ -951,23 +974,24 @@ export async function getTeamRoster(
         return players
       }
       
-      // Fetch stat definitions to help identify stat_ids for goalies
-      let statDefinitions: Record<string, string> = {}
-      if (season) {
+      // Stat definitions should already be fetched at the start of sync_league
+      // But if they're not available, fetch them as a fallback
+      const { hasStatDefinitions } = await import('./yahooParser')
+      if (!hasStatDefinitions() && season) {
         // Extract game_key from teamKey (format: {game_key}.t.{team_id})
         const teamKeyParts = teamKey.split('.')
         const gameKey = teamKeyParts[0]
         if (gameKey) {
           try {
-            statDefinitions = await getStatDefinitions(accessToken, gameKey)
+            const statDefinitions = await getStatDefinitions(accessToken, gameKey)
             if (Object.keys(statDefinitions).length > 0) {
-              console.log(`📊 Loaded ${Object.keys(statDefinitions).length} stat definitions for goalie mapping`)
+              console.log(`📊 Fallback: Loaded ${Object.keys(statDefinitions).length} stat definitions for team ${teamKey}`)
               // Update the parser's stat definitions cache
               const { setStatDefinitions } = await import('./yahooParser')
               setStatDefinitions(statDefinitions)
             }
           } catch (defError: any) {
-            console.warn(`⚠️ Could not fetch stat definitions:`, defError?.message)
+            console.warn(`⚠️ Could not fetch stat definitions (fallback):`, defError?.message)
           }
         }
       }
@@ -1326,14 +1350,17 @@ export async function getTeamRoster(
             
             // Special logging for goalies with stat definitions
             const isGoalie = player.display_position === 'G' || player.position === 'G'
-            if (isGoalie && Object.keys(statDefinitions).length > 0) {
-              const goalieStatIds = statsArray.map(s => {
-                const statId = s.stat_id || (s as any).stat?.stat_id
-                const statName = statId ? statDefinitions[statId] || 'unknown' : 'unknown'
-                const statValue = s.value || (s as any).stat?.value
-                return `stat_id ${statId} (${statName})=${statValue}`
-              }).join(', ')
-              console.log(`🎯 GOALIE STATS WITH DEFINITIONS: ${player.name?.full || player.name} | ${goalieStatIds}`)
+            if (isGoalie) {
+              const { statDefinitionsCache } = await import('./yahooParser')
+              if (Object.keys(statDefinitionsCache).length > 0) {
+                const goalieStatIds = statsArray.map(s => {
+                  const statId = s.stat_id || (s as any).stat?.stat_id
+                  const statName = statId ? statDefinitionsCache[statId] || 'unknown' : 'unknown'
+                  const statValue = s.value || (s as any).stat?.value
+                  return `stat_id ${statId} (${statName})=${statValue}`
+                }).join(', ')
+                console.log(`🎯 GOALIE STATS WITH DEFINITIONS: ${player.name?.full || player.name} | ${goalieStatIds}`)
+              }
             }
             
             console.log(`✅ Attached ${statsArray.length} SEASON stats to ${player.name?.full || player.name} (coverage: ${coverageType}, value: ${coverageValue})`)

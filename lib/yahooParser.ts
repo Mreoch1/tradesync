@@ -79,6 +79,13 @@ export function setStatDefinitions(definitions: Record<string, string>) {
   console.log(`📊 Updated stat definitions cache: ${Object.keys(definitions).length} stat_ids, ${Object.keys(statNameToIdCache).length} stat names`)
 }
 
+/**
+ * Check if stat definitions cache is empty
+ */
+export function hasStatDefinitions(): boolean {
+  return Object.keys(statDefinitionsCache).length > 0
+}
+
 function parsePlayerStatsWithName(
   yahooStats?: { stats?: Array<{ stat_id: string; value: string | number }>; coverage_type?: string; coverage_value?: number },
   playerPosition?: string,
