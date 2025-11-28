@@ -115,12 +115,16 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
     }
 
     // Build redirect URI from current window location
-    // This MUST match exactly what the callback route uses: request.nextUrl.origin + '/api/auth/yahoo/callback'
-    // Since Yahoo redirects to this URL, the origins should match
-    const redirectUri = `${window.location.origin}/api/auth/yahoo/callback`
+    // This MUST match exactly what's configured in Yahoo Developer Portal
+    // Yahoo shows: https://aitradr.netlify.app/api/auth/yahoo/callback
+    let redirectUri = `${window.location.origin}/api/auth/yahoo/callback`
+    
+    // Ensure no trailing slashes (Yahoo is strict about exact matching)
+    redirectUri = redirectUri.replace(/\/+$/, '') // Remove trailing slashes from origin if any
     
     console.log('🔍 Debug - Redirect URI:', redirectUri)
     console.log('🔍 Debug - Window origin:', window.location.origin)
+    console.log('🔍 Debug - Window location href:', window.location.href)
     
     // Validate redirect URI matches expected format
     if (!redirectUri.startsWith('https://')) {
@@ -128,11 +132,14 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
       return
     }
     
-    // Validate redirect URI matches what's configured in Yahoo
+    // Validate redirect URI matches what's configured in Yahoo (exact match required)
     const expectedRedirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
     if (redirectUri !== expectedRedirectUri) {
-      console.warn(`⚠️ Redirect URI mismatch! Expected: ${expectedRedirectUri}, Got: ${redirectUri}`)
-      setError(`Redirect URI mismatch. Expected: ${expectedRedirectUri}, Got: ${redirectUri}. Please access the app from the correct URL.`)
+      console.warn(`⚠️ Redirect URI mismatch!`)
+      console.warn(`   Expected: ${expectedRedirectUri}`)
+      console.warn(`   Got:      ${redirectUri}`)
+      console.warn(`   Origin:   ${window.location.origin}`)
+      setError(`Redirect URI mismatch. Expected: ${expectedRedirectUri}, Got: ${redirectUri}. Please access the app from https://aitradr.netlify.app`)
       return
     }
     

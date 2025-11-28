@@ -1320,14 +1320,24 @@ export function getAuthorizationUrl(
   redirectUri: string,
   state?: string
 ): string {
+  // Ensure client_id and redirect_uri are properly encoded
+  const trimmedClientId = clientId.trim()
+  const trimmedRedirectUri = redirectUri.trim()
+  
+  console.log('🔍 getAuthorizationUrl - Client ID length:', trimmedClientId.length)
+  console.log('🔍 getAuthorizationUrl - Redirect URI:', trimmedRedirectUri)
+  
   const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
+    client_id: trimmedClientId,
+    redirect_uri: trimmedRedirectUri,
     response_type: 'code',
     language: 'en-us',
     ...(state && { state }),
   })
   
-  return `https://api.login.yahoo.com/oauth2/request_auth?${params.toString()}`
+  const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?${params.toString()}`
+  console.log('🔍 getAuthorizationUrl - Full URL (first 200 chars):', authUrl.substring(0, 200))
+  
+  return authUrl
 }
 
