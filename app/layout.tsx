@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'TradeSync - Fantasy Sports Trade Analyzer',
+  title: 'AiTradr - Fantasy Sports Trade Analyzer',
   description: 'Advanced fantasy sports trade analysis with real-time Yahoo Fantasy Sports synchronization',
 }
 

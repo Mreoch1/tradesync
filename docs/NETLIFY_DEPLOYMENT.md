@@ -40,7 +40,7 @@ netlify deploy --prod
 ## Step 2: Get Your Netlify URL
 
 After deployment, Netlify will provide you with a URL like:
-- `https://your-app-name.netlify.app`
+- `https://aitrader.netlify.app` (for AiTradr)
 - Or a custom domain if you've configured one
 
 **Note**: Your Netlify URL is permanent and won't change (unlike ngrok/Cloudflare Tunnel URLs).
@@ -50,8 +50,8 @@ After deployment, Netlify will provide you with a URL like:
 1. Go to [Yahoo Developer Network](https://developer.yahoo.com/apps/)
 2. Find your app and click **"Edit"**
 3. Update the following:
-   - **Homepage URL**: `https://your-app-name.netlify.app`
-   - **Redirect URI(s)**: `https://your-app-name.netlify.app/api/auth/yahoo/callback`
+   - **Homepage URL**: `https://aitrader.netlify.app`
+   - **Redirect URI(s)**: `https://aitrader.netlify.app/api/auth/yahoo/callback`
      - Add this as a new redirect URI (you can keep your development URLs too)
 4. Click **"Update"** to save
 
@@ -64,13 +64,13 @@ After deployment, Netlify will provide you with a URL like:
 ```
 YAHOO_CLIENT_ID=your_client_id_from_yahoo
 YAHOO_CLIENT_SECRET=your_client_secret_from_yahoo
-YAHOO_REDIRECT_URI=https://your-app-name.netlify.app/api/auth/yahoo/callback
+YAHOO_REDIRECT_URI=https://aitrader.netlify.app/api/auth/yahoo/callback
 NEXT_PUBLIC_YAHOO_CLIENT_ID=your_client_id_from_yahoo
 YAHOO_GAME_KEY=418
 ```
 
 **Important Notes**:
-- Replace `your-app-name.netlify.app` with your actual Netlify URL
+- For AiTradr, use `https://aitrader.netlify.app` as your Netlify URL
 - `NEXT_PUBLIC_` prefix is required for client-side variables in Next.js
 - Never commit these values to your repository
 
@@ -84,7 +84,7 @@ After adding environment variables, trigger a new deployment:
 
 ## Step 6: Test Your Deployment
 
-1. Visit your Netlify URL: `https://your-app-name.netlify.app`
+1. Visit your Netlify URL: `https://aitrader.netlify.app`
 2. Click **"Connect Yahoo Account"** (or similar button)
 3. You should be redirected to Yahoo for authentication
 4. After authorizing, you should be redirected back to your app
@@ -103,7 +103,7 @@ After adding environment variables, trigger a new deployment:
 ### "redirect_uri_mismatch" Error
 
 - Ensure the redirect URI in Yahoo **exactly matches** your Netlify URL
-- Format: `https://your-app-name.netlify.app/api/auth/yahoo/callback`
+- Format: `https://aitrader.netlify.app/api/auth/yahoo/callback`
 - Check that environment variables are set correctly in Netlify
 
 ### Environment Variables Not Working

@@ -9,7 +9,7 @@ export default function Header() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-4">
             <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight drop-shadow-sm">
-              TradeSync
+              AiTradr
             </h1>
           </div>
           <div className="flex items-center gap-3">

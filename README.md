@@ -1,6 +1,6 @@
-# TradeSync
+# AiTradr
 
-**TradeSync** - A professional-grade web application for analyzing and evaluating fantasy sports trades across multiple sports (NFL, NBA, MLB, NHL). Make informed trade decisions with detailed value analysis, projections, and recommendations. Features real-time Yahoo Fantasy Sports synchronization and advanced trade analytics.
+**AiTradr** - A professional-grade web application for analyzing and evaluating fantasy sports trades across multiple sports (NFL, NBA, MLB, NHL). Make informed trade decisions with detailed value analysis, projections, and recommendations. Features real-time Yahoo Fantasy Sports synchronization and advanced trade analytics.
 
 **Status**: ✅ Stable Development Version - All core features operational, stats correctly mapped, team records accurate.
 
