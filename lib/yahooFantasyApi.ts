@@ -1340,6 +1340,7 @@ export function getAuthorizationUrl(
     client_id: trimmedClientId,
     redirect_uri: cleanRedirectUri,
     response_type: 'code',
+    scope: 'fspt-r', // Fantasy Sports - Read permission
     language: 'en-us',
     ...(state && { state }),
   })
@@ -1350,12 +1351,23 @@ export function getAuthorizationUrl(
   const urlObj = new URL(authUrl)
   const decodedRedirectUri = urlObj.searchParams.get('redirect_uri')
   
+  // Log all parameters being sent
+  console.log('🔍 getAuthorizationUrl - All OAuth Parameters:')
+  console.log('  - client_id:', trimmedClientId.substring(0, 30) + '...')
+  console.log('  - redirect_uri:', cleanRedirectUri)
+  console.log('  - response_type:', 'code')
+  console.log('  - scope:', 'fspt-r')
+  console.log('  - language:', 'en-us')
+  if (state) console.log('  - state:', state)
+  
   console.log('🔍 getAuthorizationUrl - Full URL:', authUrl)
   console.log('🔍 getAuthorizationUrl - Redirect URI being sent:', cleanRedirectUri)
   console.log('🔍 getAuthorizationUrl - Redirect URI in URL (decoded):', decodedRedirectUri)
   console.log('🔍 getAuthorizationUrl - Expected Redirect URI:', expectedRedirectUri)
   console.log('🔍 getAuthorizationUrl - Match:', cleanRedirectUri === expectedRedirectUri)
   console.log('🔍 getAuthorizationUrl - Client ID in URL:', urlObj.searchParams.get('client_id')?.substring(0, 30) + '...')
+  console.log('🔍 getAuthorizationUrl - Scope in URL:', urlObj.searchParams.get('scope'))
+  console.log('🔍 getAuthorizationUrl - Response type in URL:', urlObj.searchParams.get('response_type'))
   console.log('🔍 getAuthorizationUrl - Client ID length:', trimmedClientId.length)
   console.log('🔍 getAuthorizationUrl - Client ID matches expected:', trimmedClientId === 'dj0yJmk9TEo2TFg0MFR2dTk1JmQ9WVdrOWEwWkxNbmxYZFVvbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTU3')
   

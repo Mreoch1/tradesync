@@ -108,9 +108,14 @@ Please verify:
     return NextResponse.redirect(redirectUrl.toString())
   }
 
-  // Get OAuth credentials
+  // Get OAuth credentials - verify they're set
   const clientId = process.env.YAHOO_CLIENT_ID
   const clientSecret = process.env.YAHOO_CLIENT_SECRET
+  
+  console.log('🔍 Server-side env check:')
+  console.log('  - YAHOO_CLIENT_ID:', clientId ? `Set (length: ${clientId.length})` : 'NOT SET')
+  console.log('  - YAHOO_CLIENT_SECRET:', clientSecret ? 'Set' : 'NOT SET')
+  console.log('  - YAHOO_REDIRECT_URI:', process.env.YAHOO_REDIRECT_URI || 'NOT SET')
   
   console.log('🔍 Token exchange - Client ID:', clientId ? `${clientId.substring(0, 20)}...` : 'NOT SET')
   console.log('🔍 Token exchange - Client Secret:', clientSecret ? 'SET' : 'NOT SET')
