@@ -1365,11 +1365,21 @@ export async function getTeamRoster(
                   // Special logging for Celebrini to help identify stat_id mappings
                   // Expected values: G:14, A:20, P:34, +/-:3, PIM:12, PPP:12, SHP:0, GWG:3, SOG:70, FW:181, HIT:14, BLK:16
                   if (isCelebrini) {
-                    console.log(`🎯 CELEBRINI STAT_ID MAPPING ANALYSIS:`)
-                    console.log(`   Expected: G:14, A:20, P:34, +/-:3, PIM:12, PPP:12, SHP:0, GWG:3, SOG:70, FW:181, HIT:14, BLK:16`)
-                    console.log(`   Looking for stat_ids with these values:`)
-                    const expectedValues: Record<string, number> = { 'G': 14, 'A': 20, 'P': 34, '+/-': 3, 'PIM': 12, 'PPP': 12, 'SHP': 0, 'GWG': 3, 'SOG': 70, 'FW': 181, 'HIT': 14, 'BLK': 16 }
+                    console.log(`\n${'='.repeat(80)}`)
+                    console.log(`🎯 CELEBRINI STAT_ID MAPPING ANALYSIS`)
+                    console.log(`${'='.repeat(80)}`)
+                    console.log(`   Expected Stats: G:14, A:20, P:34, +/-:3, PIM:12, PPP:12, SHP:0, GWG:3, SOG:70, FW:181, HIT:14, BLK:16`)
+                    console.log(`   Looking for stat_ids with these values in API response...\n`)
+                    
+                    const expectedValues: Record<string, number> = { 
+                      'G': 14, 'A': 20, 'P': 34, '+/-': 3, 'PIM': 12, 'PPP': 12, 
+                      'SHP': 0, 'GWG': 3, 'SOG': 70, 'FW': 181, 'HIT': 14, 'BLK': 16 
+                    }
+                    
+                    // Build complete mapping table
+                    const allStatsMap: Array<{statId: string, statName: string, value: number, matches?: string}> = []
                     const matches: Array<{statId: string, statName: string, value: number, expectedStat: string}> = []
+                    
                     statsArray.forEach(s => {
                       const statId = s.stat_id || (s as any).stat?.stat_id
                       const statValue = typeof s.value === 'string' ? parseFloat(s.value) || 0 : (s.value || 0)
@@ -1379,26 +1389,72 @@ export async function getTeamRoster(
                       const matchingStat = Object.entries(expectedValues).find(([_, val]) => val === statValue)
                       if (matchingStat) {
                         matches.push({statId, statName, value: statValue, expectedStat: matchingStat[0]})
+                        allStatsMap.push({statId, statName, value: statValue, matches: matchingStat[0]})
                         console.log(`   ✅ stat_id ${statId} (${statName})=${statValue} → MATCHES ${matchingStat[0]}`)
                       } else {
+                        allStatsMap.push({statId, statName, value: statValue})
                         console.log(`   📊 stat_id ${statId} (${statName})=${statValue}`)
                       }
                     })
                     
+                    // Complete mapping table
+                    console.log(`\n${'-'.repeat(80)}`)
+                    console.log(`📋 COMPLETE STAT_ID MAPPING TABLE FOR CELEBRINI:`)
+                    console.log(`${'-'.repeat(80)}`)
+                    console.log(`Stat ID | Stat Name                    | Value | Maps To`)
+                    console.log(`${'-'.repeat(80)}`)
+                    allStatsMap.forEach(m => {
+                      const statId = m.statId.padEnd(6)
+                      const statName = (m.statName || 'unknown').padEnd(28).substring(0, 28)
+                      const value = String(m.value).padEnd(5)
+                      const mapsTo = m.matches ? `→ ${m.matches}` : ''
+                      console.log(`${statId} | ${statName} | ${value} | ${mapsTo}`)
+                    })
+                    console.log(`${'-'.repeat(80)}\n`)
+                    
                     // Summary of matches
                     if (matches.length > 0) {
-                      console.log(`\n🎯 CELEBRINI STAT_ID MAPPING SUMMARY:`)
+                      console.log(`🎯 CONFIRMED STAT_ID MAPPINGS (use these in yahooParser.ts):`)
+                      console.log(`${'-'.repeat(80)}`)
                       matches.forEach(m => {
-                        console.log(`   ${m.expectedStat}: stat_id ${m.statId} (${m.statName}) = ${m.value}`)
+                        console.log(`   ${m.expectedStat.padEnd(6)} → stat_id ${m.statId.padEnd(3)} (${m.statName}) = ${m.value}`)
                       })
-                      console.log(`\n📝 Use these stat_id mappings in yahooParser.ts to fix the stat parsing!`)
+                      console.log(`${'-'.repeat(80)}\n`)
+                      
+                      // Generate code snippet for easy copy-paste
+                      console.log(`📝 CODE SNIPPET TO UPDATE yahooParser.ts:`)
+                      console.log(`${'-'.repeat(80)}`)
+                      console.log(`// Update these mappings based on Celebrini analysis:`)
+                      matches.forEach(m => {
+                        const fieldName = 
+                          m.expectedStat === 'G' ? 'goals' :
+                          m.expectedStat === 'A' ? 'hockeyAssists' :
+                          m.expectedStat === 'P' ? 'hockeyPoints' :
+                          m.expectedStat === '+/-' ? 'plusMinus' :
+                          m.expectedStat === 'PIM' ? 'pim' :
+                          m.expectedStat === 'PPP' ? 'ppp' :
+                          m.expectedStat === 'SHP' ? 'shp' :
+                          m.expectedStat === 'GWG' ? 'gwg' :
+                          m.expectedStat === 'SOG' ? 'sog' :
+                          m.expectedStat === 'FW' ? 'fw' :
+                          m.expectedStat === 'HIT' ? 'hit' :
+                          m.expectedStat === 'BLK' ? 'blk' :
+                          'unknown'
+                        if (fieldName !== 'unknown') {
+                          console.log(`// ${m.expectedStat}: stats.${fieldName} = statsMap['${m.statId}']`)
+                        }
+                      })
+                      console.log(`${'-'.repeat(80)}\n`)
                     } else {
                       console.warn(`\n⚠️ WARNING: No stat_id values matched Celebrini's expected stats!`)
                       console.warn(`   This suggests either:`)
                       console.warn(`   1. Wrong stats are being fetched (projected vs season)`)
                       console.warn(`   2. Celebrini's stats have changed`)
                       console.warn(`   3. The expected values are incorrect`)
+                      console.warn(`\n   Please verify Celebrini's current stats on Yahoo Fantasy website.`)
                     }
+                    
+                    console.log(`${'='.repeat(80)}\n`)
                   }
                 }
               } else {
@@ -1447,27 +1503,96 @@ export async function getTeamRoster(
                 
                 // Celebrini-specific analysis
                 if (isCelebrini) {
-                  console.log(`🎯 CELEBRINI STAT_ID MAPPING ANALYSIS (array path):`)
-                  console.log(`   Expected: G:14, A:20, P:34, +/-:3, PIM:12, PPP:12, SHP:0, GWG:3, SOG:70, FW:181, HIT:14, BLK:16`)
-                  const expectedValues: Record<string, number> = { 'G': 14, 'A': 20, 'P': 34, '+/-': 3, 'PIM': 12, 'PPP': 12, 'SHP': 0, 'GWG': 3, 'SOG': 70, 'FW': 181, 'HIT': 14, 'BLK': 16 }
-                  const matches: Array<{statId: string, value: number, expectedStat: string}> = []
+                  console.log(`\n${'='.repeat(80)}`)
+                  console.log(`🎯 CELEBRINI STAT_ID MAPPING ANALYSIS (array path)`)
+                  console.log(`${'='.repeat(80)}`)
+                  console.log(`   Expected Stats: G:14, A:20, P:34, +/-:3, PIM:12, PPP:12, SHP:0, GWG:3, SOG:70, FW:181, HIT:14, BLK:16`)
+                  console.log(`   Looking for stat_ids with these values in API response...\n`)
+                  
+                  const expectedValues: Record<string, number> = { 
+                    'G': 14, 'A': 20, 'P': 34, '+/-': 3, 'PIM': 12, 'PPP': 12, 
+                    'SHP': 0, 'GWG': 3, 'SOG': 70, 'FW': 181, 'HIT': 14, 'BLK': 16 
+                  }
+                  
+                  // Build complete mapping table
+                  const allStatsMap: Array<{statId: string, statName: string, value: number, matches?: string}> = []
+                  const matches: Array<{statId: string, statName: string, value: number, expectedStat: string}> = []
+                  
                   statsData.stats.forEach((s: { stat_id?: string; value?: string | number; stat?: { stat_id?: string; value?: string | number } }) => {
-                    const statId = s.stat_id || s.stat?.stat_id
+                    const statId = s.stat_id || s.stat?.stat_id || 'unknown'
                     const statValue = typeof s.value === 'string' ? parseFloat(s.value) || 0 : (typeof (s.stat?.value) === 'string' ? parseFloat(s.stat.value) || 0 : (s.value || s.stat?.value || 0))
+                    const statName = yahooParser.hasStatDefinitions() ? yahooParser.getStatDefinitionsCache()[statId] || 'unknown' : 'unknown'
+                    
+                    // Find which expected stat this might be
                     const matchingStat = Object.entries(expectedValues).find(([_, val]) => val === statValue)
                     if (matchingStat) {
-                      matches.push({statId: statId || 'unknown', value: statValue, expectedStat: matchingStat[0]})
-                      console.log(`   ✅ stat_id ${statId}=${statValue} → MATCHES ${matchingStat[0]}`)
+                      matches.push({statId, statName, value: statValue, expectedStat: matchingStat[0]})
+                      allStatsMap.push({statId, statName, value: statValue, matches: matchingStat[0]})
+                      console.log(`   ✅ stat_id ${statId} (${statName})=${statValue} → MATCHES ${matchingStat[0]}`)
                     } else {
-                      console.log(`   📊 stat_id ${statId}=${statValue}`)
+                      allStatsMap.push({statId, statName, value: statValue})
+                      console.log(`   📊 stat_id ${statId} (${statName})=${statValue}`)
                     }
                   })
+                  
+                  // Complete mapping table
+                  console.log(`\n${'-'.repeat(80)}`)
+                  console.log(`📋 COMPLETE STAT_ID MAPPING TABLE FOR CELEBRINI:`)
+                  console.log(`${'-'.repeat(80)}`)
+                  console.log(`Stat ID | Stat Name                    | Value | Maps To`)
+                  console.log(`${'-'.repeat(80)}`)
+                  allStatsMap.forEach(m => {
+                    const statId = m.statId.padEnd(6)
+                    const statName = (m.statName || 'unknown').padEnd(28).substring(0, 28)
+                    const value = String(m.value).padEnd(5)
+                    const mapsTo = m.matches ? `→ ${m.matches}` : ''
+                    console.log(`${statId} | ${statName} | ${value} | ${mapsTo}`)
+                  })
+                  console.log(`${'-'.repeat(80)}\n`)
+                  
+                  // Summary of matches
                   if (matches.length > 0) {
-                    console.log(`\n🎯 CELEBRINI STAT_ID MAPPING SUMMARY:`)
+                    console.log(`🎯 CONFIRMED STAT_ID MAPPINGS (use these in yahooParser.ts):`)
+                    console.log(`${'-'.repeat(80)}`)
                     matches.forEach(m => {
-                      console.log(`   ${m.expectedStat}: stat_id ${m.statId} = ${m.value}`)
+                      console.log(`   ${m.expectedStat.padEnd(6)} → stat_id ${m.statId.padEnd(3)} (${m.statName}) = ${m.value}`)
                     })
+                    console.log(`${'-'.repeat(80)}\n`)
+                    
+                    // Generate code snippet for easy copy-paste
+                    console.log(`📝 CODE SNIPPET TO UPDATE yahooParser.ts:`)
+                    console.log(`${'-'.repeat(80)}`)
+                    console.log(`// Update these mappings based on Celebrini analysis:`)
+                    matches.forEach(m => {
+                      const fieldName = 
+                        m.expectedStat === 'G' ? 'goals' :
+                        m.expectedStat === 'A' ? 'hockeyAssists' :
+                        m.expectedStat === 'P' ? 'hockeyPoints' :
+                        m.expectedStat === '+/-' ? 'plusMinus' :
+                        m.expectedStat === 'PIM' ? 'pim' :
+                        m.expectedStat === 'PPP' ? 'ppp' :
+                        m.expectedStat === 'SHP' ? 'shp' :
+                        m.expectedStat === 'GWG' ? 'gwg' :
+                        m.expectedStat === 'SOG' ? 'sog' :
+                        m.expectedStat === 'FW' ? 'fw' :
+                        m.expectedStat === 'HIT' ? 'hit' :
+                        m.expectedStat === 'BLK' ? 'blk' :
+                        'unknown'
+                      if (fieldName !== 'unknown') {
+                        console.log(`// ${m.expectedStat}: stats.${fieldName} = statsMap['${m.statId}']`)
+                      }
+                    })
+                    console.log(`${'-'.repeat(80)}\n`)
+                  } else {
+                    console.warn(`\n⚠️ WARNING: No stat_id values matched Celebrini's expected stats!`)
+                    console.warn(`   This suggests either:`)
+                    console.warn(`   1. Wrong stats are being fetched (projected vs season)`)
+                    console.warn(`   2. Celebrini's stats have changed`)
+                    console.warn(`   3. The expected values are incorrect`)
+                    console.warn(`\n   Please verify Celebrini's current stats on Yahoo Fantasy website.`)
                   }
+                  
+                  console.log(`${'='.repeat(80)}\n`)
                 }
               }
             }
