@@ -620,6 +620,49 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
   })
   
   console.log(`✅ Parsed ${teams.length} teams from league ${leagueKey}`)
+  
+  // If no teams have standings, try fetching from standings endpoint as fallback
+  const teamsWithoutStandings = teams.filter(t => t.wins === 0 && t.losses === 0 && t.ties === 0)
+  if (teamsWithoutStandings.length === teams.length && teams.length > 0) {
+    console.warn(`⚠️ All ${teams.length} teams have 0-0-0 records. Attempting to fetch standings from separate endpoint...`)
+    try {
+      const standingsResponse = await makeApiRequest(`league/${leagueKey}/standings`, accessToken)
+      const standingsLeague = standingsResponse.fantasy_content?.league
+      if (Array.isArray(standingsLeague) && standingsLeague.length > 1) {
+        const standingsData = standingsLeague[1]?.standings
+        if (standingsData && typeof standingsData === 'object') {
+          console.log(`📊 Found standings data in separate endpoint`)
+          // Map standings to teams by team_key
+          Object.values(standingsData).forEach((standingObj: any) => {
+            if (typeof standingObj !== 'object' || !standingObj.team) return
+            const standingTeamArray = standingObj.team
+            if (!Array.isArray(standingTeamArray)) return
+            
+            const standingTeamData = extractYahooData<any>(standingTeamArray, 0)
+            const teamKey = standingTeamData?.team_key
+            if (!teamKey) return
+            
+            // Find the team in our array
+            const team = teams.find(t => t.team_key === teamKey)
+            if (!team) return
+            
+            // Extract standings
+            const standings = standingTeamArray[2]?.team_standings
+            if (standings?.outcome_totals) {
+              const ot = standings.outcome_totals
+              team.wins = parseInt(ot.wins || ot.win || '0', 10) || 0
+              team.losses = parseInt(ot.losses || ot.loss || '0', 10) || 0
+              team.ties = parseInt(ot.ties || ot.tie || '0', 10) || 0
+              console.log(`✅ Updated standings for ${team.name}: ${team.wins}-${team.losses}-${team.ties}`)
+            }
+          })
+        }
+      }
+    } catch (standingsError: any) {
+      console.warn(`⚠️ Could not fetch standings from separate endpoint:`, standingsError?.message)
+    }
+  }
+  
   return teams
 }
 
@@ -631,6 +674,11 @@ async function fetchPlayerStats(
   players: YahooPlayer[],
   season: string
 ): Promise<void> {
+  if (!season) {
+    console.error(`❌ fetchPlayerStats called without season parameter - cannot fetch stats`)
+    return
+  }
+  
   const playerKeys = players.map(p => p.player_key).filter(Boolean)
   if (playerKeys.length === 0) {
     console.warn(`⚠️ No player keys to fetch stats for`)
@@ -638,6 +686,7 @@ async function fetchPlayerStats(
   }
 
   console.log(`📊 Fetching stats for ${playerKeys.length} players (season=${season})`)
+  console.log(`📊 First 5 player keys:`, playerKeys.slice(0, 5).join(', '))
 
   // Track stats attachment
   let playersWithStatsAttached = 0
@@ -1019,12 +1068,26 @@ export async function getTeamRoster(
 
     // Fetch stats for all players if season is provided
     if (season && players.length > 0) {
+      console.log(`📊 Fetching stats for ${players.length} players on team ${teamKey} (season=${season})`)
       try {
         await fetchPlayerStats(accessToken, players, season)
+        const playersWithStats = players.filter(p => p.player_stats && p.player_stats.stats && p.player_stats.stats.length > 0).length
+        console.log(`✅ Stats fetch complete for team ${teamKey}: ${playersWithStats}/${players.length} players have stats`)
+        if (playersWithStats < players.length) {
+          console.warn(`⚠️ Team ${teamKey}: ${players.length - playersWithStats} player(s) did not receive stats`)
+        }
       } catch (statsError: any) {
         console.error(`❌ Failed to fetch stats for team ${teamKey}:`, statsError?.message)
+        console.error(`   Error stack:`, statsError?.stack)
         console.error(`   Continuing without stats - players will have default values`)
         // Don't throw - return players without stats rather than failing completely
+      }
+    } else {
+      if (!season) {
+        console.warn(`⚠️ No season provided for team ${teamKey} - skipping stats fetch`)
+      }
+      if (players.length === 0) {
+        console.warn(`⚠️ No players to fetch stats for on team ${teamKey}`)
       }
     }
 
