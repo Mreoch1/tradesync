@@ -48,6 +48,16 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
         console.error('Failed to parse stored tokens:', e)
         setError('Failed to load stored authentication tokens')
       }
+    } else {
+      // No tokens found - automatically start OAuth flow if client ID is configured
+      const clientId = process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID
+      if (clientId && typeof window !== 'undefined') {
+        console.log('🔄 No tokens found, auto-starting OAuth flow...')
+        // Small delay to ensure component is fully mounted
+        setTimeout(() => {
+          handleAuthenticate()
+        }, 500)
+      }
     }
   }, [])
 
@@ -122,10 +132,6 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
     // Ensure no trailing slashes (Yahoo is strict about exact matching)
     redirectUri = redirectUri.replace(/\/+$/, '') // Remove trailing slashes from origin if any
     
-    console.log('🔍 Debug - Redirect URI:', redirectUri)
-    console.log('🔍 Debug - Window origin:', window.location.origin)
-    console.log('🔍 Debug - Window location href:', window.location.href)
-    
     // Validate redirect URI matches expected format
     if (!redirectUri.startsWith('https://')) {
       setError('OAuth requires HTTPS. Please access the app via HTTPS URL.')
@@ -135,21 +141,18 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
     // Validate redirect URI matches what's configured in Yahoo (exact match required)
     const expectedRedirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
     if (redirectUri !== expectedRedirectUri) {
-      console.warn(`⚠️ Redirect URI mismatch!`)
-      console.warn(`   Expected: ${expectedRedirectUri}`)
-      console.warn(`   Got:      ${redirectUri}`)
-      console.warn(`   Origin:   ${window.location.origin}`)
-      setError(`Redirect URI mismatch. Expected: ${expectedRedirectUri}, Got: ${redirectUri}. Please access the app from https://aitradr.netlify.app`)
+      console.warn(`⚠️ Redirect URI mismatch! Expected: ${expectedRedirectUri}, Got: ${redirectUri}`)
+      setError(`Redirect URI mismatch. Please access the app from https://aitradr.netlify.app`)
       return
     }
     
     try {
       const authUrl = getAuthorizationUrl(trimmedClientId, redirectUri)
-      console.log('🔍 Debug - Full OAuth URL:', authUrl)
-      console.log('🔍 Debug - Client ID in URL:', trimmedClientId.substring(0, 30) + '...')
+      console.log('🔄 Redirecting to Yahoo OAuth:', authUrl.substring(0, 100) + '...')
+      // Redirect to Yahoo for authentication
       window.location.href = authUrl
     } catch (err: any) {
-      console.error('Failed to generate OAuth URL:', err)
+      console.error('❌ Failed to generate OAuth URL:', err)
       setError(err.message || 'Failed to start OAuth authentication')
     }
   }
@@ -388,18 +391,13 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
         
         {!isAuthenticated ? (
           <div className="space-y-4">
-            <p className="text-gray-600">
-              Yahoo Fantasy Sports will automatically sync when authenticated.
-            </p>
-            <Button
-              onClick={handleAuthenticate}
-              className="w-full"
-              disabled={!process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID}
-            >
-              {process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID 
-                ? 'Connect Yahoo Account' 
-                : 'Yahoo Client ID Not Configured'}
-            </Button>
+            <div className="flex items-center gap-2 text-sm text-blue-600">
+              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>Connecting to Yahoo Fantasy Sports...</span>
+            </div>
             {!process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID && (
               <div className="text-xs text-red-600 mt-2 space-y-1">
                 <p>⚠️ NEXT_PUBLIC_YAHOO_CLIENT_ID environment variable is not set.</p>
@@ -410,11 +408,6 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
                   <li>Wait for build to complete</li>
                 </ol>
               </div>
-            )}
-            {process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID && (
-              <p className="text-xs text-green-600 mt-2">
-                ✅ Client ID configured. Click &quot;Connect Yahoo Account&quot; to authenticate.
-              </p>
             )}
           </div>
         ) : (
