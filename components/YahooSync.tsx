@@ -168,10 +168,20 @@ Note: NEXT_PUBLIC_ variables are embedded at build time, so a rebuild is require
     // We don't need to block here - if it doesn't match, Yahoo will return an error
     
     try {
+      // Verify redirect URI matches exactly
+      if (redirectUri !== 'https://aitradr.netlify.app/api/auth/yahoo/callback') {
+        console.warn('⚠️ Redirect URI mismatch detected!')
+        console.warn('Expected: https://aitradr.netlify.app/api/auth/yahoo/callback')
+        console.warn('Got:', redirectUri)
+        setError(`Redirect URI mismatch. Please access the app from https://aitradr.netlify.app (not from ${window.location.origin})`)
+        return
+      }
+      
       const authUrl = getAuthorizationUrl(trimmedClientId, redirectUri)
       console.log('🔄 Redirecting to Yahoo OAuth:', authUrl.substring(0, 100) + '...')
       console.log('🔄 Full OAuth URL:', authUrl)
       console.log('🔄 Make sure this redirect URI is configured in Yahoo Developer Portal:', redirectUri)
+      console.log('🔄 Client ID being used:', trimmedClientId.substring(0, 30) + '...')
       
       // Redirect to Yahoo for authentication
       window.location.href = authUrl
@@ -230,7 +240,28 @@ Troubleshooting:
     // Check for OAuth errors in query params
     const yahooError = urlParams.get('yahoo_error')
     if (yahooError) {
-      setError(yahooError)
+      let errorMessage = yahooError
+      
+      // Provide helpful error messages for common issues
+      if (yahooError.includes('valid client') || yahooError.includes('Please specify a valid client')) {
+        errorMessage = `Yahoo OAuth Error: "Please specify a valid client"
+
+This usually means:
+1. Your app may not be fully approved in Yahoo Developer Portal
+   → Check your app status at https://developer.yahoo.com/apps/
+   → Make sure it shows as "Active" or "Approved"
+
+2. Redirect URI mismatch
+   → Verify in Yahoo Developer Portal: https://aitradr.netlify.app/api/auth/yahoo/callback
+   → Must match exactly (no trailing slashes, exact case)
+
+3. Client ID mismatch
+   → Verify Client ID in Netlify matches Yahoo Developer Portal exactly
+
+Visit /diagnostics to see detailed configuration.`
+      }
+      
+      setError(errorMessage)
       // Clean up URL
       urlParams.delete('yahoo_error')
       const newUrl = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : '')
