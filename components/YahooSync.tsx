@@ -361,6 +361,21 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
             <p className="text-gray-600">
               Yahoo Fantasy Sports will automatically sync when authenticated.
             </p>
+            <Button
+              onClick={handleAuthenticate}
+              className="w-full"
+              disabled={!process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID}
+            >
+              {process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID 
+                ? 'Connect Yahoo Account' 
+                : 'Yahoo Client ID Not Configured'}
+            </Button>
+            {!process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID && (
+              <p className="text-xs text-red-600 mt-2">
+                NEXT_PUBLIC_YAHOO_CLIENT_ID environment variable is not set. 
+                Please configure it in Netlify and trigger a new deployment.
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
