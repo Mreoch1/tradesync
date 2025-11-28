@@ -10,6 +10,15 @@ import { getAccessToken } from '@/lib/yahooFantasyApi'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
+  
+  // Log ALL query parameters for debugging
+  const allParams: Record<string, string> = {}
+  searchParams.forEach((value, key) => {
+    allParams[key] = value
+  })
+  console.log('🔍 Callback - All query parameters:', JSON.stringify(allParams, null, 2))
+  console.log('🔍 Callback - Full URL:', request.nextUrl.toString())
+  
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const error = searchParams.get('error')
@@ -53,8 +62,22 @@ export async function GET(request: NextRequest) {
   // Validate authorization code
   if (!code) {
     console.error('❌ No authorization code in callback')
+    console.error('❌ Callback URL:', request.nextUrl.toString())
+    console.error('❌ All query params:', Object.keys(allParams).join(', '))
+    console.error('❌ Has error param:', !!error)
+    console.error('❌ Error value:', error)
+    console.error('❌ Error description:', errorDescription)
+    
+    // Provide more helpful error message
+    let errorMsg = 'No authorization code provided'
+    if (error) {
+      errorMsg = `Yahoo OAuth error: ${errorDescription || error}`
+    } else if (Object.keys(allParams).length === 0) {
+      errorMsg = 'Yahoo redirected back but provided no parameters. This usually means the redirect URI does not match exactly. Verify in Yahoo Developer Portal that the redirect URI is exactly: https://aitradr.netlify.app/api/auth/yahoo/callback'
+    }
+    
     const redirectUrl = new URL('/', baseUrl)
-    redirectUrl.searchParams.set('yahoo_error', 'No authorization code provided')
+    redirectUrl.searchParams.set('yahoo_error', errorMsg)
     return NextResponse.redirect(redirectUrl.toString())
   }
 
