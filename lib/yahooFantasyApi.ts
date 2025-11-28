@@ -818,11 +818,16 @@ export async function getTeamRoster(
   date?: string,
   season?: string
 ): Promise<YahooPlayer[]> {
+  // CRITICAL: This function fetches BOTH roster AND stats
+  // It should only be called ONCE per team to avoid duplicate API calls
+  console.log(`📊 getTeamRoster called for ${teamKey} - season=${season || 'not specified'}, date=${date || 'not specified'}`)
+  
   // Request roster - the roster endpoint returns player info but stats need to be fetched separately
   // First get the roster to get player keys
   const rosterEndpoint = `team/${teamKey}/roster${date ? `;date=${date}` : ''}`
   const params: Record<string, string> | undefined = date ? { date } : undefined
   
+  console.log(`📊 Step 1: Fetching roster for ${teamKey}`)
   const response = await makeApiRequest(rosterEndpoint, accessToken, params)
   
   const responseStr = response ? JSON.stringify(response, null, 2) : 'undefined'
