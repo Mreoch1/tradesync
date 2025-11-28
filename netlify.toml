@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Ensure NEXT_PUBLIC_ variables are available during build
+# These are automatically included from Netlify environment variables
+
