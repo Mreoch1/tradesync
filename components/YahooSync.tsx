@@ -91,8 +91,11 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
 
   const handleAuthenticate = () => {
     const clientId = process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID
+    console.log('🔍 Debug - NEXT_PUBLIC_YAHOO_CLIENT_ID:', clientId ? 'Set' : 'NOT SET')
+    console.log('🔍 Debug - process.env keys:', Object.keys(process.env).filter(k => k.includes('YAHOO')))
+    
     if (!clientId) {
-      setError('Yahoo Client ID not configured. Please set NEXT_PUBLIC_YAHOO_CLIENT_ID environment variable.')
+      setError('Yahoo Client ID not configured. Please set NEXT_PUBLIC_YAHOO_CLIENT_ID environment variable in Netlify and trigger a new deployment.')
       return
     }
 
@@ -371,9 +374,19 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
                 : 'Yahoo Client ID Not Configured'}
             </Button>
             {!process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID && (
-              <p className="text-xs text-red-600 mt-2">
-                NEXT_PUBLIC_YAHOO_CLIENT_ID environment variable is not set. 
-                Please configure it in Netlify and trigger a new deployment.
+              <div className="text-xs text-red-600 mt-2 space-y-1">
+                <p>⚠️ NEXT_PUBLIC_YAHOO_CLIENT_ID environment variable is not set.</p>
+                <p>This variable must be set in Netlify before building. Steps:</p>
+                <ol className="list-decimal list-inside ml-2 space-y-1">
+                  <li>Set NEXT_PUBLIC_YAHOO_CLIENT_ID in Netlify environment variables</li>
+                  <li>Trigger a new deployment (push a commit or use Netlify dashboard)</li>
+                  <li>Wait for build to complete</li>
+                </ol>
+              </div>
+            )}
+            {process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID && (
+              <p className="text-xs text-green-600 mt-2">
+                ✅ Client ID configured. Click "Connect Yahoo Account" to authenticate.
               </p>
             )}
           </div>
