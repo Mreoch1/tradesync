@@ -395,7 +395,7 @@ Visit /diagnostics to see detailed configuration.`
               })
               .map((team: Team) => `${team.name} (${team.players?.length || 0} players, ${team.record})`)
             console.warn(`⚠️ Filtered out ${filteredOut} team(s) with no data:`)
-            filteredTeamNames.forEach(name => console.warn(`   - ${name}`))
+            filteredTeamNames.forEach((name: string) => console.warn(`   - ${name}`))
             console.warn(`   These teams have 0 players and 0-0-0 record. They may have failed to fetch roster.`)
           }
 
