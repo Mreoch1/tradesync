@@ -121,8 +121,17 @@ Please verify:
   console.log('🔍 Token exchange - Client Secret:', clientSecret ? 'SET' : 'NOT SET')
   
   // Build redirect URI for token exchange - MUST match exactly what was sent in authorization request
-  // Use the base URL we already extracted above
-  let redirectUri = `${baseUrl}/api/auth/yahoo/callback`
+  // For production, use YAHOO_REDIRECT_URI directly from env (this is what was sent in the auth request)
+  // For local dev, reconstruct from request origin
+  let redirectUri: string
+  
+  if (process.env.YAHOO_REDIRECT_URI) {
+    // Production: Use the exact redirect URI from environment (must match Yahoo Developer Portal)
+    redirectUri = process.env.YAHOO_REDIRECT_URI.trim()
+  } else {
+    // Local dev: Reconstruct from request origin
+    redirectUri = `${baseUrl}/api/auth/yahoo/callback`
+  }
   
   // Ensure no trailing slashes (Yahoo is strict)
   redirectUri = redirectUri.replace(/\/+$/, '')
@@ -130,14 +139,15 @@ Please verify:
   const expectedRedirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
   
   console.log('🔍 Token exchange - Base URL:', baseUrl)
-  console.log('🔍 Token exchange - Redirect URI:', redirectUri)
+  console.log('🔍 Token exchange - Redirect URI (from env):', process.env.YAHOO_REDIRECT_URI)
+  console.log('🔍 Token exchange - Redirect URI (final):', redirectUri)
   console.log('🔍 Token exchange - Expected Redirect URI:', expectedRedirectUri)
   console.log('🔍 Token exchange - Match:', redirectUri === expectedRedirectUri)
-  console.log('🔍 Token exchange - Expected (from env):', process.env.YAHOO_REDIRECT_URI)
   
   // Warn if redirect URI doesn't match expected
   if (redirectUri !== expectedRedirectUri) {
     console.warn(`⚠️ Redirect URI mismatch in callback! Expected: ${expectedRedirectUri}, Got: ${redirectUri}`)
+    console.warn(`⚠️ This will cause INVALID_REDIRECT_URI error. Please ensure YAHOO_REDIRECT_URI in Netlify matches exactly.`)
   }
 
   if (!clientId || !clientSecret) {

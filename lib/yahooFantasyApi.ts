@@ -461,7 +461,9 @@ export async function getLeagueInfo(accessToken: string, leagueKey: string): Pro
  * Get all teams in a league
  */
 export async function getLeagueTeams(accessToken: string, leagueKey: string): Promise<YahooTeam[]> {
-  const response = await makeApiRequest(`league/${leagueKey}/teams`, accessToken)
+  // Request teams with standings subresource to ensure we get win/loss/tie records
+  // Format: league/{leagueKey}/teams;out=standings
+  const response = await makeApiRequest(`league/${leagueKey}/teams;out=standings`, accessToken)
   
   const responseStr = response ? JSON.stringify(response, null, 2) : 'undefined'
   console.log('Raw getLeagueTeams response structure:', responseStr.substring(0, 1500))
@@ -736,6 +738,49 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
   if (teams.length === 0) {
     const responseStr = response ? JSON.stringify(response, null, 2) : 'undefined'
     console.error('❌ No teams parsed! Raw response structure:', responseStr.substring(0, 2000))
+  }
+  
+  // If any teams have 0-0-0 records, try to fetch standings separately and merge
+  const teamsWithZeroRecords = teams.filter(t => t.wins === 0 && t.losses === 0 && t.ties === 0)
+  if (teamsWithZeroRecords.length > 0 && teamsWithZeroRecords.length === teams.length) {
+    console.log(`⚠️ All ${teams.length} teams have 0-0-0 records. Attempting to fetch standings separately...`)
+    try {
+      const standingsResponse = await makeApiRequest(`league/${leagueKey}/standings`, accessToken)
+      const standingsLeague = standingsResponse.fantasy_content?.league
+      if (standingsLeague && Array.isArray(standingsLeague) && standingsLeague.length > 1) {
+        const standingsData = standingsLeague[1]?.standings
+        if (standingsData) {
+          console.log(`📊 Found standings data, merging with teams...`)
+          // Parse standings and match by team_key
+          const standingsEntries = Object.entries(standingsData)
+          standingsEntries.forEach(([key, standingObj]: [string, any]) => {
+            if (key === 'count' || typeof standingObj === 'number') return
+            
+            const standingArray = standingObj?.team_standings || standingObj
+            if (!standingArray || !Array.isArray(standingArray)) return
+            
+            // Extract team_key from standings
+            const standingTeamKey = standingArray[0]?.team_key
+            if (!standingTeamKey) return
+            
+            // Find matching team and update record
+            const team = teams.find(t => t.team_key === standingTeamKey)
+            if (team) {
+              // Extract wins, losses, ties from standings
+              const outcomeTotals = standingArray[2]?.outcome_totals || standingArray[1]?.outcome_totals
+              if (outcomeTotals) {
+                team.wins = parseInt(outcomeTotals.wins || outcomeTotals.win || '0') || 0
+                team.losses = parseInt(outcomeTotals.losses || outcomeTotals.loss || '0') || 0
+                team.ties = parseInt(outcomeTotals.ties || outcomeTotals.tie || '0') || 0
+                console.log(`✅ Updated ${team.name} record from standings: ${team.wins}-${team.losses}-${team.ties}`)
+              }
+            }
+          })
+        }
+      }
+    } catch (standingsError: any) {
+      console.warn(`⚠️ Failed to fetch standings separately:`, standingsError.message)
+    }
   }
   
   return teams
