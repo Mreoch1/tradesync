@@ -1279,46 +1279,111 @@ export async function parseYahooTeams(
       console.log(`\n📊 [${teamNum}/${yahooTeams.length}] Processing team: ${yahooTeam.name} (key: ${yahooTeam.team_key})`)
       
       // getRosterFn should already include stats since we fetch them in getTeamRoster
-      let roster: YahooPlayer[]
+      let roster: YahooPlayer[] = []
+      let rosterFetchSuccess = false
       try {
         roster = await getRosterFn(yahooTeam.team_key)
+        rosterFetchSuccess = true
         console.log(`✅ [${teamNum}/${yahooTeams.length}] Fetched roster for ${yahooTeam.name}: ${roster.length} players`)
+        
+        // Validate roster data
+        if (roster.length === 0) {
+          console.warn(`⚠️ [${teamNum}/${yahooTeams.length}] Team ${yahooTeam.name} has 0 players - roster may be empty or parsing failed`)
+        }
       } catch (rosterError: any) {
         console.error(`❌ [${teamNum}/${yahooTeams.length}] Failed to fetch roster for team ${yahooTeam.name} (key: ${yahooTeam.team_key}):`, rosterError)
         console.error(`   Error message:`, rosterError?.message)
         console.error(`   Error stack:`, rosterError?.stack)
-        // Continue with empty roster rather than failing completely
+        // Continue with empty roster - still create team object but mark as failed
         roster = []
         failedTeams.push(`${yahooTeam.name} (roster fetch failed)`)
       }
       
       // Parse players - stats should already be attached from getRosterFn
-      const players = roster.map(player => {
+      const players = roster.map((player, playerIndex) => {
+        // Validate player data
+        if (!player.player_key) {
+          console.warn(`⚠️ [${teamNum}/${yahooTeams.length}] Player at index ${playerIndex} on team ${yahooTeam.name} missing player_key - skipping`)
+          return null
+        }
+        
         // Verify stats are present before parsing
         if (!player.player_stats) {
           console.warn(`⚠️ Player ${player.name?.full || 'Unknown'} (${player.player_key}) on team ${yahooTeam.name} missing stats - will use default value`)
+        } else {
+          // Validate stats structure
+          if (!player.player_stats.stats || !Array.isArray(player.player_stats.stats)) {
+            console.warn(`⚠️ Player ${player.name?.full || 'Unknown'} (${player.player_key}) has invalid stats structure`)
+          }
         }
-        return parseYahooPlayer(player, yahooTeam.name)
-      })
+        
+        try {
+          return parseYahooPlayer(player, yahooTeam.name)
+        } catch (parseError: any) {
+          console.error(`❌ Failed to parse player ${player.name?.full || 'Unknown'} (${player.player_key}):`, parseError?.message)
+          return null
+        }
+      }).filter((p): p is NonNullable<typeof p> => p !== null) // Remove null entries
       
       // Count players with stats
       const playersWithStats = players.filter(p => p.stats && Object.keys(p.stats).length > 0).length
       const playersWithoutStats = players.length - playersWithStats
       
-      teams.push(parseYahooTeam(yahooTeam, players))
-      console.log(`✅ [${teamNum}/${yahooTeams.length}] Successfully parsed team ${yahooTeam.name} with ${players.length} players (${playersWithStats} with stats, ${playersWithoutStats} without stats)`)
+      // Always create team object, even if roster fetch failed or has no players
+      const team = parseYahooTeam(yahooTeam, players)
+      teams.push(team)
       
-      if (playersWithoutStats > 0) {
-        console.warn(`⚠️ Team ${yahooTeam.name} has ${playersWithoutStats} player(s) without stats - check logs above for reasons`)
+      if (rosterFetchSuccess) {
+        console.log(`✅ [${teamNum}/${yahooTeams.length}] Successfully parsed team ${yahooTeam.name} with ${players.length} players (${playersWithStats} with stats, ${playersWithoutStats} without stats)`)
+        
+        if (playersWithoutStats > 0) {
+          console.warn(`⚠️ Team ${yahooTeam.name} has ${playersWithoutStats} player(s) without stats - check logs above for reasons`)
+        }
+        
+        if (players.length === 0 && roster.length > 0) {
+          console.error(`❌ Team ${yahooTeam.name} had ${roster.length} players in roster but 0 after parsing - parsing may have failed`)
+        }
+      } else {
+        console.warn(`⚠️ [${teamNum}/${yahooTeams.length}] Created team ${yahooTeam.name} with 0 players (roster fetch failed)`)
       }
     } catch (error: any) {
       console.error(`❌ [${teamNum}/${yahooTeams.length}] Error parsing team ${yahooTeam.name} (key: ${yahooTeam.team_key}):`, error)
       console.error(`   Error message:`, error?.message)
       console.error(`   Error stack:`, error?.stack)
       failedTeams.push(`${yahooTeam.name} (parsing error: ${error?.message || 'Unknown'})`)
-      // Continue with other teams even if one fails, but log the error clearly
+      
+      // Still create team object with empty players so all teams are included
+      try {
+        const emptyTeam = parseYahooTeam(yahooTeam, [])
+        teams.push(emptyTeam)
+        console.warn(`⚠️ [${teamNum}/${yahooTeams.length}] Created team ${yahooTeam.name} with 0 players due to parsing error`)
+      } catch (teamError: any) {
+        console.error(`❌ Failed to create team object for ${yahooTeam.name}:`, teamError?.message)
+        // Skip this team entirely if we can't even create the basic team object
+      }
     }
   }
+  
+  // Final validation: ensure all teams are included
+  if (teams.length !== yahooTeams.length) {
+    console.error(`\n❌ CRITICAL: Team count mismatch!`)
+    console.error(`   Expected: ${yahooTeams.length} teams`)
+    console.error(`   Actual: ${teams.length} teams`)
+    console.error(`   Missing: ${yahooTeams.length - teams.length} teams`)
+    
+    // Find which teams are missing
+    const teamNames = new Set(teams.map(t => t.name))
+    const missingTeams = yahooTeams.filter(t => !teamNames.has(t.name))
+    if (missingTeams.length > 0) {
+      console.error(`   Missing team names: ${missingTeams.map(t => t.name).join(', ')}`)
+    }
+  }
+  
+  // Calculate total players and stats across all teams
+  const totalPlayers = teams.reduce((sum, team) => sum + team.players.length, 0)
+  const totalPlayersWithStats = teams.reduce((sum, team) => 
+    sum + team.players.filter(p => p.stats && Object.keys(p.stats).length > 0).length, 0
+  )
   
   console.log(`\n${'='.repeat(80)}`)
   console.log(`📊 parseYahooTeams Summary:`)
@@ -1326,6 +1391,7 @@ export async function parseYahooTeams(
   console.log(`   ❌ Failed: ${failedTeams.length} teams`)
   console.log(`   ⏭️  Skipped: ${skippedTeams.length} teams`)
   console.log(`   📋 Total input: ${yahooTeams.length} teams`)
+  console.log(`   👥 Total players: ${totalPlayers} (${totalPlayersWithStats} with stats, ${totalPlayers - totalPlayersWithStats} without stats)`)
   
   if (failedTeams.length > 0) {
     console.log(`\n   Failed teams:`)

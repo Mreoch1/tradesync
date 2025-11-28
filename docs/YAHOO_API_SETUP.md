@@ -22,8 +22,10 @@ The Yahoo Fantasy Sports API allows you to programmatically access:
    - **Application Type**: Select **"Web Application"**
    - **Home Page URL**: Your app's homepage URL
    - **Redirect URI(s)**: 
-     - For development: `http://localhost:3000/api/yahoo/sync`
-     - For production: `https://yourdomain.com/api/yahoo/sync`
+     - For development: `https://your-cloudflare-tunnel-url.trycloudflare.com/api/auth/yahoo/callback`
+     - For production: `https://aitradr.netlify.app/api/auth/yahoo/callback`
+     - **IMPORTANT**: Must be HTTPS (Yahoo blocks HTTP)
+     - **CRITICAL**: The URI must match EXACTLY (no trailing slashes, exact path)
    - **Application Description**: Brief description of your application
    - **API Permissions**: Select **"Fantasy Sports - Read"** (at minimum)
 
@@ -140,7 +142,7 @@ function MyComponent() {
 
 - `POST /api/yahoo/sync` - Main sync endpoint
   - Actions: `get_leagues`, `get_teams`, `sync_league`
-- `GET /api/yahoo/sync?code=...` - OAuth callback handler
+- `GET /api/auth/yahoo/callback` - OAuth callback handler (receives authorization code from Yahoo)
 
 ### Client-Side Functions:
 
@@ -159,8 +161,14 @@ function MyComponent() {
 - Solution: Add `NEXT_PUBLIC_YAHOO_CLIENT_ID` to `.env.local`
 - Restart dev server after adding environment variables
 
-**2. "Redirect URI mismatch"**
-- Solution: Ensure `YAHOO_REDIRECT_URI` in `.env.local` exactly matches the redirect URI configured in your Yahoo app settings
+**2. "Redirect URI mismatch" or "INVALID_REDIRECT_URI"**
+- Solution: 
+  1. Go to [Yahoo Developer Portal](https://developer.yahoo.com/apps/)
+  2. Find your app and click "Edit"
+  3. In "Redirect URI(s)" field, add EXACTLY: `https://aitradr.netlify.app/api/auth/yahoo/callback`
+  4. **No trailing slashes** - must be exact match
+  5. Click "Update" and wait 2-5 minutes for changes to propagate
+  6. For local dev, use your Cloudflare Tunnel URL: `https://YOUR_TUNNEL_URL.trycloudflare.com/api/auth/yahoo/callback`
 
 **3. "Token expired and no refresh token"**
 - Solution: Re-authenticate by clicking "Connect Yahoo Account" again
@@ -214,7 +222,7 @@ Set these in your hosting platform (Vercel, Netlify, etc.):
 ```
 YAHOO_CLIENT_ID=...
 YAHOO_CLIENT_SECRET=...
-YAHOO_REDIRECT_URI=https://yourdomain.com/api/yahoo/sync
+YAHOO_REDIRECT_URI=https://yourdomain.com/api/auth/yahoo/callback
 NEXT_PUBLIC_YAHOO_CLIENT_ID=...
 YAHOO_GAME_KEY=418
 ```
@@ -224,8 +232,10 @@ YAHOO_GAME_KEY=418
 Make sure to add your production redirect URI to your Yahoo app settings:
 1. Go to [Yahoo Developer Network](https://developer.yahoo.com/apps/)
 2. Edit your app
-3. Add production redirect URI under "Redirect URI(s)"
-4. Save changes
+3. Add production redirect URI under "Redirect URI(s)": `https://aitradr.netlify.app/api/auth/yahoo/callback`
+4. **CRITICAL**: Must be EXACT match - no trailing slashes, exact path
+5. Click "Update" and wait 2-5 minutes for changes to propagate
+6. Save changes
 
 ## Additional Resources
 

@@ -605,25 +605,40 @@ async function fetchPlayerStats(
   season: string
 ): Promise<void> {
   const playerKeys = players.map(p => p.player_key).filter(Boolean)
-  if (playerKeys.length === 0) return
+  if (playerKeys.length === 0) {
+    console.warn(`⚠️ No player keys to fetch stats for`)
+    return
+  }
 
   console.log(`📊 Fetching stats for ${playerKeys.length} players (season=${season})`)
 
+  // Track stats attachment
+  let playersWithStatsAttached = 0
+  let playersWithoutStats = 0
+
   // Fetch in batches of 25 (Yahoo API limit)
-      const BATCH_SIZE = 25
-      
-      for (let i = 0; i < playerKeys.length; i += BATCH_SIZE) {
-        const batch = playerKeys.slice(i, i + BATCH_SIZE)
+  const BATCH_SIZE = 25
+  const totalBatches = Math.ceil(playerKeys.length / BATCH_SIZE)
+  
+  for (let i = 0; i < playerKeys.length; i += BATCH_SIZE) {
+    const batch = playerKeys.slice(i, i + BATCH_SIZE)
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1
     const endpoint = `players;player_keys=${batch.join(',')}/stats;type=season;season=${season}`
+    
+    console.log(`📊 Fetching stats batch ${batchNum}/${totalBatches} (${batch.length} players)`)
     
     try {
       const statsResponse = await makeApiRequest(endpoint, accessToken)
       const playersData = statsResponse.fantasy_content?.players
       
       if (!playersData || typeof playersData !== 'object') {
-        console.warn(`⚠️ No stats data in response for batch ${Math.floor(i / BATCH_SIZE) + 1}`)
+        console.warn(`⚠️ No stats data in response for batch ${batchNum}/${totalBatches}`)
+        playersWithoutStats += batch.length
         continue
       }
+      
+      const playersInResponse = Object.keys(playersData).length
+      console.log(`📊 Batch ${batchNum}/${totalBatches} returned stats for ${playersInResponse} players`)
 
       // Import yahooParser for Celebrini logging (outside forEach to avoid async issues)
       const yahooParser = await import('./yahooParser')
@@ -700,6 +715,7 @@ async function fetchPlayerStats(
           }
 
           const playerName = player.name?.full || playerKey
+          playersWithStatsAttached++
           console.log(`✅ Attached stats to ${playerName} (${seasonStats.stats.length} stats)`)
           
           // Enhanced logging for Celebrini to help identify stat_id mappings
@@ -719,13 +735,33 @@ async function fetchPlayerStats(
             console.log(`📊 Coverage: ${player.player_stats.coverage_type}, Season: ${player.player_stats.coverage_value}`)
             console.log(`${'='.repeat(80)}\n`)
           }
-            } else {
+        } else {
           console.warn(`⚠️ No season stats found for player ${playerKey}`)
+          playersWithoutStats++
         }
       })
+      
+      // Check for players in batch that didn't get stats
+      const batchPlayerKeys = new Set(batch)
+      const playersWithStatsInBatch = players.filter(p => 
+        batchPlayerKeys.has(p.player_key) && p.player_stats
+      )
+      const missingInBatch = batch.length - playersWithStatsInBatch.length
+      if (missingInBatch > 0) {
+        console.warn(`⚠️ Batch ${batchNum}/${totalBatches}: ${missingInBatch} player(s) did not receive stats`)
+      }
     } catch (error: any) {
-      console.error(`❌ Failed to fetch stats for batch ${Math.floor(i / BATCH_SIZE) + 1}:`, error.message)
+      console.error(`❌ Failed to fetch stats for batch ${batchNum}/${totalBatches}:`, error.message)
+      playersWithoutStats += batch.length
     }
+  }
+  
+  // Final summary
+  console.log(`\n📊 Stats Fetch Summary:`)
+  console.log(`   ✅ Players with stats: ${playersWithStatsAttached}/${playerKeys.length}`)
+  console.log(`   ❌ Players without stats: ${playersWithoutStats}/${playerKeys.length}`)
+  if (playersWithoutStats > 0) {
+    console.warn(`   ⚠️ ${playersWithoutStats} player(s) did not receive stats - check logs above for details`)
   }
 }
 
@@ -752,97 +788,205 @@ export async function getTeamRoster(
       throw new Error(`Invalid roster response structure for team ${teamKey}. Expected team array, got: ${Array.isArray(team) ? team.length : typeof team}`)
     }
 
-    // Yahoo API returns team as nested array: team: [[{team_key}, {team_id}, {name}, [], {url}, ..., {roster: [...]}]]
-    // We need to find the roster in the nested structure
-    let roster: any = null
+    // Yahoo API returns team as: team: [[{team_key}, {team_id}, ...], {roster: {"0": {players: {"0": {player: [...]}}}}]
+    // The roster is at team[1].roster as an object with numeric string keys
+    let rosterData: any = null
+    
+    console.log(`📊 Team structure: Array length=${team.length}, team[0] is ${Array.isArray(team[0]) ? 'array' : typeof team[0]}, team[1] is ${team[1] ? (typeof team[1]) : 'undefined'}`)
     
     // Check if team[0] is an array (nested structure)
     if (Array.isArray(team[0])) {
-      const teamArray = team[0]
-      // Search through the nested array for roster
-      for (let i = 0; i < teamArray.length; i++) {
-        const item = teamArray[i]
-        if (item && typeof item === 'object' && item.roster && Array.isArray(item.roster)) {
-          roster = item.roster
-          break
+      console.log(`📊 team[0] is array with ${team[0].length} elements`)
+      // First, try team[1].roster (most common structure)
+      if (team[1] && typeof team[1] === 'object') {
+        console.log(`📊 team[1] exists, checking for roster property...`)
+        console.log(`📊 team[1] keys: ${Object.keys(team[1]).join(', ')}`)
+        if (team[1].roster) {
+          console.log(`📊 Found team[1].roster, type: ${typeof team[1].roster}, isArray: ${Array.isArray(team[1].roster)}`)
+          if (typeof team[1].roster === 'object') {
+            rosterData = team[1].roster
+            console.log(`✅ Using team[1].roster, has ${Object.keys(rosterData).length} entries`)
+          }
+        } else {
+          console.log(`⚠️ team[1] exists but no roster property`)
+        }
+      } else {
+        console.log(`⚠️ team[1] doesn't exist or is not an object`)
+      }
+      
+      // If we didn't find it at team[1].roster, search through team[0] array
+      if (!rosterData) {
+        console.log(`📊 Searching through team[0] array for roster...`)
+        const teamArray = team[0]
+        for (let i = 0; i < teamArray.length; i++) {
+          const item = teamArray[i]
+          if (item && typeof item === 'object' && item.roster) {
+            console.log(`📊 Found roster at team[0][${i}]`)
+            if (Array.isArray(item.roster)) {
+              rosterData = item.roster
+            } else if (typeof item.roster === 'object') {
+              rosterData = item.roster
+            }
+            if (rosterData) break
+          }
         }
       }
-    } else if (team[1]?.roster && Array.isArray(team[1].roster)) {
-      // Fallback: try team[1].roster (non-nested structure)
-      roster = team[1].roster
+    } else if (team[1] && typeof team[1] === 'object' && team[1].roster) {
+      // Direct roster access (non-nested structure)
+      console.log(`📊 Using direct team[1].roster access`)
+      rosterData = team[1].roster
     } else {
       // Search through all team array elements for roster
+      console.log(`📊 Searching through all team elements for roster...`)
       for (let i = 0; i < team.length; i++) {
         const item = team[i]
-        if (item && typeof item === 'object' && item.roster && Array.isArray(item.roster)) {
-          roster = item.roster
-          break
+        if (item && typeof item === 'object' && item.roster) {
+          console.log(`📊 Found roster at team[${i}]`)
+          if (Array.isArray(item.roster)) {
+            rosterData = item.roster
+          } else if (typeof item.roster === 'object') {
+            rosterData = item.roster
+          }
+          if (rosterData) break
         }
         // Also check if item is an array and search within it
         if (Array.isArray(item)) {
           for (let j = 0; j < item.length; j++) {
             const subItem = item[j]
-            if (subItem && typeof subItem === 'object' && subItem.roster && Array.isArray(subItem.roster)) {
-              roster = subItem.roster
-              break
+            if (subItem && typeof subItem === 'object' && subItem.roster) {
+              console.log(`📊 Found roster at team[${i}][${j}]`)
+              if (Array.isArray(subItem.roster)) {
+                rosterData = subItem.roster
+              } else if (typeof subItem.roster === 'object') {
+                rosterData = subItem.roster
+              }
+              if (rosterData) break
             }
           }
-          if (roster) break
+          if (rosterData) break
         }
       }
     }
 
-    if (!roster || !Array.isArray(roster)) {
+    if (!rosterData) {
       const teamStr = JSON.stringify(team, null, 2).substring(0, 2000)
       console.error(`❌ No roster data in response for ${teamKey}`)
       console.error(`   team structure:`, teamStr)
       throw new Error(`No roster data in response for team ${teamKey}. Searched through team array but couldn't find roster property.`)
     }
+    
+    console.log(`✅ Found roster data: ${Array.isArray(rosterData) ? 'array' : 'object'} with ${Array.isArray(rosterData) ? rosterData.length : Object.keys(rosterData).length} entries`)
 
     const players: YahooPlayer[] = []
     
     // Extract players from roster
-    roster.forEach((playerObj: any) => {
-    if (!playerObj?.player || !Array.isArray(playerObj.player)) return
+    // Structure: roster["0"].players["0"].player[...]
+    // Roster can be either an array or an object with numeric string keys
+    const rosterEntries = Array.isArray(rosterData) 
+      ? rosterData 
+      : Object.values(rosterData)
     
-    const playerArray = playerObj.player
-    const playerData = extractYahooData<any>(playerArray, 0)
+    console.log(`📊 Roster data structure: ${Array.isArray(rosterData) ? 'array' : 'object'}, ${rosterEntries.length} entries`)
     
-    if (!playerData?.player_key) {
-      console.warn('Skipping player - missing player_key')
-      return
-    }
-
-    // Extract ownership from playerArray
-    let ownership: any = undefined
-    for (let i = 1; i < playerArray.length; i++) {
-      const item = playerArray[i]
-      if (item?.ownership) {
-        ownership = item.ownership
-        break
+    rosterEntries.forEach((rosterEntry: any, rosterIndex: number) => {
+      if (!rosterEntry || typeof rosterEntry !== 'object') {
+        console.warn(`⚠️ Skipping invalid roster entry at index ${rosterIndex}`)
+        return
       }
-    }
+      
+      // Roster entry structure: { players: {"0": { player: [...] }, "1": { player: [...] }, ...} }
+      let playerEntries: any[] = []
+      
+      if (rosterEntry?.players) {
+        // players is an object with numeric string keys
+        if (Array.isArray(rosterEntry.players)) {
+          playerEntries = rosterEntry.players
+        } else if (typeof rosterEntry.players === 'object') {
+          // Convert object with numeric keys to array
+          playerEntries = Object.values(rosterEntry.players)
+        }
+      } else if (rosterEntry?.player) {
+        // Direct player reference (alternative structure)
+        playerEntries = Array.isArray(rosterEntry.player) ? rosterEntry.player : [rosterEntry.player]
+      }
+      
+      if (playerEntries.length === 0) {
+        console.warn(`⚠️ No player entries found in roster entry ${rosterIndex}`)
+        return
+      }
+      
+      console.log(`📊 Found ${playerEntries.length} player entries in roster entry ${rosterIndex}`)
+      
+      // Process each player entry
+      playerEntries.forEach((playerObj: any, playerIndex: number) => {
+        if (!playerObj || typeof playerObj !== 'object') {
+          console.warn(`⚠️ Skipping invalid player object at roster[${rosterIndex}].players[${playerIndex}]`)
+          return
+        }
+        
+        // Player entry structure: { player: [[{player_key}, ...], ...] }
+        let playerArray: any[] = []
+        
+        if (playerObj?.player) {
+          // player property exists - it's an array of player data arrays
+          if (Array.isArray(playerObj.player)) {
+            playerArray = playerObj.player
+          } else if (typeof playerObj.player === 'object') {
+            // Single player object, wrap in array
+            playerArray = [playerObj.player]
+          }
+        } else if (Array.isArray(playerObj)) {
+          // Player entry is directly an array
+          playerArray = playerObj
+        } else if (playerObj && typeof playerObj === 'object' && playerObj.player_key) {
+          // Already a player data object
+          playerArray = [playerObj]
+        }
+        
+        if (playerArray.length === 0) {
+          console.warn(`⚠️ No player data found in player entry ${playerIndex}`)
+          return
+        }
+        
+        // Extract player data from the first element of the array
+        const playerData = extractYahooData<any>(playerArray, 0)
+        
+        if (!playerData?.player_key) {
+          console.warn(`⚠️ Skipping player at index ${playerIndex} - missing player_key`)
+          return
+        }
 
-    const playerId = playerData.player_id || playerData.player_key?.split('.')?.[2] || ''
-    
-    players.push({
-      player_key: playerData.player_key,
-      player_id: playerId,
-      name: playerData.name || { full: 'Unknown Player', first: '', last: '', ascii_first: '', ascii_last: '' },
-      display_position: playerData.display_position || 'N/A',
-      position_type: playerData.position_type || '',
-      primary_position: playerData.primary_position || '',
-      eligible_positions: Array.isArray(playerData.eligible_positions) ? playerData.eligible_positions : [],
-      position: playerData.display_position || playerData.primary_position || 'N/A',
-      status: playerData.status,
-      status_full: playerData.status_full,
-      injury_note: playerData.injury_note,
-      headshot: playerData.headshot,
-      ownership,
-      // Stats will be fetched separately
-      player_stats: undefined,
+        // Extract ownership from playerArray (usually in a later element)
+        let ownership: any = undefined
+        for (let i = 1; i < playerArray.length; i++) {
+          const item = playerArray[i]
+          if (item && typeof item === 'object' && item.ownership) {
+            ownership = item.ownership
+            break
+          }
+        }
+
+        const playerId = playerData.player_id || playerData.player_key?.split('.')?.[2] || ''
+        
+        players.push({
+          player_key: playerData.player_key,
+          player_id: playerId,
+          name: playerData.name || { full: 'Unknown Player', first: '', last: '', ascii_first: '', ascii_last: '' },
+          display_position: playerData.display_position || 'N/A',
+          position_type: playerData.position_type || '',
+          primary_position: playerData.primary_position || '',
+          eligible_positions: Array.isArray(playerData.eligible_positions) ? playerData.eligible_positions : [],
+          position: playerData.display_position || playerData.primary_position || 'N/A',
+          status: playerData.status,
+          status_full: playerData.status_full,
+          injury_note: playerData.injury_note,
+          headshot: playerData.headshot,
+          ownership,
+          // Stats will be fetched separately
+          player_stats: undefined,
+        })
+      })
     })
-  })
 
     console.log(`✅ Parsed ${players.length} players from roster`)
 

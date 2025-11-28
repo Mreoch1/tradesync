@@ -5,7 +5,7 @@
  * Yahoo Fantasy Sports API responses.
  */
 
-import { getStatDefinitions } from '@/lib/yahooFantasyApi'
+import { getStatDefinitions, getTeamRoster } from '@/lib/yahooFantasyApi'
 import { setStatDefinitions } from '@/lib/yahooParser'
 
 // Mock the makeApiRequest function
@@ -132,6 +132,133 @@ describe('Yahoo Fantasy API', () => {
       expect(mockYahooTeams).toHaveLength(2)
       expect(mockYahooTeams[0].name).toBe('Test Team 1')
       expect(mockYahooTeams[1].name).toBe('Test Team 2')
+    })
+  })
+
+  describe('getTeamRoster', () => {
+    it('should parse roster with nested structure team[1].roster["0"].players["0"].player[...]', async () => {
+      // This is the exact structure we saw in the error logs
+      const mockRosterResponse = {
+        fantasy_content: {
+          team: [
+            [
+              { team_key: '465.l.9080.t.1' },
+              { team_id: '1' },
+              { name: 'Smok\'n Pipes' },
+              [],
+              { url: 'https://hockey.fantasysports.yahoo.com/hockey/9080/1' },
+            ],
+            {
+              roster: {
+                '0': {
+                  players: {
+                    '0': {
+                      player: [
+                        [
+                          { player_key: '465.p.30545' },
+                          { player_id: '30545' },
+                          {
+                            name: {
+                              full: 'Leo Carlsson',
+                              first: 'Leo',
+                              last: 'Carlsson',
+                              ascii_first: 'Leo',
+                              ascii_last: 'Carlsson',
+                            },
+                          },
+                          { display_position: 'C' },
+                          { position_type: 'P' },
+                          { primary_position: 'C' },
+                        ],
+                      ],
+                    },
+                    '1': {
+                      player: [
+                        [
+                          { player_key: '465.p.8310' },
+                          { player_id: '8310' },
+                          {
+                            name: {
+                              full: 'Shane Pinto',
+                              first: 'Shane',
+                              last: 'Pinto',
+                              ascii_first: 'Shane',
+                              ascii_last: 'Pinto',
+                            },
+                          },
+                          { display_position: 'C' },
+                          { position_type: 'P' },
+                          { primary_position: 'C' },
+                        ],
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      }
+
+      // Mock fetch for the API call
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockRosterResponse),
+        headers: {
+          get: (key: string) => key === 'content-type' ? 'application/json; charset=utf-8' : null,
+        },
+        status: 200,
+        statusText: 'OK',
+      }) as jest.Mock
+
+      const accessToken = 'test-token'
+      const teamKey = '465.l.9080.t.1'
+      const players = await getTeamRoster(accessToken, teamKey)
+
+      expect(players).toHaveLength(2)
+      expect(players[0].player_key).toBe('465.p.30545')
+      expect(players[0].player_id).toBe('30545')
+      expect(players[0].name.full).toBe('Leo Carlsson')
+      expect(players[0].display_position).toBe('C')
+      expect(players[1].player_key).toBe('465.p.8310')
+      expect(players[1].name.full).toBe('Shane Pinto')
+    })
+
+    it('should handle empty roster gracefully', async () => {
+      const mockRosterResponse = {
+        fantasy_content: {
+          team: [
+            [
+              { team_key: '465.l.9080.t.1' },
+              { team_id: '1' },
+              { name: 'Empty Team' },
+            ],
+            {
+              roster: {
+                '0': {
+                  players: {},
+                },
+              },
+            },
+          ],
+        },
+      }
+
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockRosterResponse),
+        headers: {
+          get: (key: string) => key === 'content-type' ? 'application/json; charset=utf-8' : null,
+        },
+        status: 200,
+        statusText: 'OK',
+      }) as jest.Mock
+
+      const accessToken = 'test-token'
+      const teamKey = '465.l.9080.t.1'
+      const players = await getTeamRoster(accessToken, teamKey)
+
+      expect(players).toHaveLength(0)
     })
   })
 
