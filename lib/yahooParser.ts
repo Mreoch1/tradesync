@@ -385,6 +385,16 @@ function parsePlayerStats(
     // Skater stats - use stat definitions if available, otherwise fallback to hardcoded mappings
     const useStatDefinitions = Object.keys(statNameToIdCache).length > 0
     
+    // Log stat definitions cache status
+    if (playerName && playerName.toLowerCase().includes('celebrini')) {
+      console.log(`🔍 Celebrini stats parsing - useStatDefinitions: ${useStatDefinitions}`)
+      console.log(`🔍 Stat definitions cache size: ${Object.keys(statDefinitionsCache).length}`)
+      console.log(`🔍 Stat name to ID cache size: ${Object.keys(statNameToIdCache).length}`)
+      if (useStatDefinitions) {
+        console.log(`🔍 Sample stat names in cache:`, Object.keys(statNameToIdCache).slice(0, 10).join(', '))
+      }
+    }
+    
     // Log skater stats with definitions if available
     if (playerName && useStatDefinitions) {
       const allSkaterStats = Object.keys(statsMap)
@@ -400,7 +410,8 @@ function parsePlayerStats(
         .sort((a, b) => parseInt(a) - parseInt(b))
         .map(id => `stat_id ${id}=${statsMap[id]}`)
         .join(', ')
-      console.log(`🎯 SKATER DEBUG: ${playerName} | ${allSkaterStats}`)
+      console.log(`🎯 SKATER DEBUG (no definitions): ${playerName} | ${allSkaterStats}`)
+      console.warn(`⚠️ Stat definitions not available - using hardcoded mappings which may be incorrect`)
     }
     
     // Helper function to find stat_id by name using stat definitions
@@ -461,23 +472,41 @@ function parsePlayerStats(
     // - Need to find HIT and BLK stat_ids
     
     // Goals (G) - use stat definitions first
-    const goalsStatId = findStatIdByName(['goals', 'g'])
+    const goalsStatId = findStatIdByName(['goals', 'g', 'goal'])
     if (goalsStatId) {
       stats.goals = statsMap[goalsStatId]
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`✅ Celebrini Goals: Found via stat definitions, stat_id=${goalsStatId}, value=${stats.goals}`)
+      }
     } else if (statsMap['0'] !== undefined) {
       stats.goals = statsMap['0'] // Fallback to stat_id 0
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`⚠️ Celebrini Goals: Using fallback stat_id=0, value=${stats.goals}`)
+      }
     } else if (statsMap['1'] !== undefined) {
       stats.goals = statsMap['1'] // Fallback to stat_id 1
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`⚠️ Celebrini Goals: Using fallback stat_id=1, value=${stats.goals}`)
+      }
     }
     
     // Assists (A) - use stat definitions first
-    const assistsStatId = findStatIdByName(['assists', 'a'])
+    const assistsStatId = findStatIdByName(['assists', 'a', 'assist'])
     if (assistsStatId) {
       stats.hockeyAssists = statsMap[assistsStatId]
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`✅ Celebrini Assists: Found via stat definitions, stat_id=${assistsStatId}, value=${stats.hockeyAssists}`)
+      }
     } else if (statsMap['1'] !== undefined) {
       stats.hockeyAssists = statsMap['1'] // Fallback to stat_id 1
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`⚠️ Celebrini Assists: Using fallback stat_id=1, value=${stats.hockeyAssists}`)
+      }
     } else if (statsMap['0'] !== undefined) {
       stats.hockeyAssists = statsMap['0'] // Fallback to stat_id 0
+      if (playerName && playerName.toLowerCase().includes('celebrini')) {
+        console.log(`⚠️ Celebrini Assists: Using fallback stat_id=0, value=${stats.hockeyAssists}`)
+      }
     }
     
     // Points (P) - calculate from G+A if available, otherwise use stat definitions

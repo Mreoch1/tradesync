@@ -143,41 +143,33 @@ Note: NEXT_PUBLIC_ variables are embedded at build time, so a rebuild is require
       return
     }
 
-    // Build redirect URI from current window location
-    // This MUST match exactly what's configured in Yahoo Developer Portal
-    // Yahoo shows: https://aitradr.netlify.app/api/auth/yahoo/callback
-    let redirectUri = `${window.location.origin}/api/auth/yahoo/callback`
+    // Build redirect URI - MUST match exactly what's configured in Yahoo Developer Portal
+    // For production, always use the Netlify URL
+    // For local dev, use window.location.origin
+    const isProduction = window.location.hostname === 'aitradr.netlify.app' || window.location.hostname.includes('netlify.app')
+    const redirectUri = isProduction 
+      ? 'https://aitradr.netlify.app/api/auth/yahoo/callback'
+      : `${window.location.origin}/api/auth/yahoo/callback`
     
     // Ensure no trailing slashes (Yahoo is strict about exact matching)
-    redirectUri = redirectUri.replace(/\/+$/, '') // Remove trailing slashes from origin if any
+    const cleanRedirectUri = redirectUri.replace(/\/+$/, '')
     
     // Validate redirect URI matches expected format
-    if (!redirectUri.startsWith('https://')) {
+    if (!cleanRedirectUri.startsWith('https://')) {
       setError('OAuth requires HTTPS. Please access the app via HTTPS URL.')
       return
     }
     
-    // Log redirect URI for debugging (don't block - let Yahoo validate it)
-    console.log('🔍 OAuth Redirect URI:', redirectUri)
-    console.log('🔍 Expected Redirect URI:', 'https://aitradr.netlify.app/api/auth/yahoo/callback')
-    console.log('🔍 Redirect URI Match:', redirectUri === 'https://aitradr.netlify.app/api/auth/yahoo/callback')
+    // Log redirect URI for debugging
+    console.log('🔍 OAuth Redirect URI:', cleanRedirectUri)
+    console.log('🔍 Expected Redirect URI (Production):', 'https://aitradr.netlify.app/api/auth/yahoo/callback')
     console.log('🔍 Current window location:', window.location.href)
     console.log('🔍 Window origin:', window.location.origin)
-    
-    // Note: Yahoo will validate the redirect URI matches what's configured in their portal
-    // We don't need to block here - if it doesn't match, Yahoo will return an error
+    console.log('🔍 Is production:', isProduction)
     
     try {
-      // Verify redirect URI matches exactly
-      if (redirectUri !== 'https://aitradr.netlify.app/api/auth/yahoo/callback') {
-        console.warn('⚠️ Redirect URI mismatch detected!')
-        console.warn('Expected: https://aitradr.netlify.app/api/auth/yahoo/callback')
-        console.warn('Got:', redirectUri)
-        setError(`Redirect URI mismatch. Please access the app from https://aitradr.netlify.app (not from ${window.location.origin})`)
-        return
-      }
       
-      const authUrl = getAuthorizationUrl(trimmedClientId, redirectUri)
+      const authUrl = getAuthorizationUrl(trimmedClientId, cleanRedirectUri)
       console.log('🔄 Redirecting to Yahoo OAuth:', authUrl.substring(0, 100) + '...')
       console.log('🔄 Full OAuth URL:', authUrl)
       console.log('🔄 Make sure this redirect URI is configured in Yahoo Developer Portal:', redirectUri)

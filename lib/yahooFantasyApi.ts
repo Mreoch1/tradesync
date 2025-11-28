@@ -620,40 +620,85 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
     // Get standings - check multiple possible locations
     let wins = 0, losses = 0, ties = 0
     
-    // Try teamArray[2] first (most common location)
-    const standings = teamArray[2]?.team_standings || teamArray[2] || {}
-    const outcomeTotals = standings?.outcome_totals || {}
+    // Log full teamArray structure for first team to understand the data structure
+    if (teams.length === 0) {
+      console.log(`📊 Full teamArray structure for ${teamData.name}:`)
+      console.log(`   teamArray length:`, teamArray.length)
+      teamArray.forEach((item, idx) => {
+        if (item && typeof item === 'object') {
+          console.log(`   teamArray[${idx}] keys:`, Object.keys(item).join(', '))
+          if (idx === 2) {
+            console.log(`   teamArray[2] full:`, JSON.stringify(item, null, 2).substring(0, 1000))
+          }
+        }
+      })
+    }
     
-    // Also check if standings data is directly in teamArray[2]
-    if (standings && typeof standings === 'object') {
-      // Check for nested structure
-      if (standings.outcome_totals) {
-        wins = parseInt(standings.outcome_totals.wins || '0') || 0
-        losses = parseInt(standings.outcome_totals.losses || '0') || 0
-        ties = parseInt(standings.outcome_totals.ties || '0') || 0
-      } else if (standings.wins !== undefined || standings.losses !== undefined) {
-        // Direct properties
-        wins = parseInt(standings.wins || '0') || 0
-        losses = parseInt(standings.losses || '0') || 0
-        ties = parseInt(standings.ties || '0') || 0
+    // Try multiple locations for standings data
+    // Location 1: teamArray[2].team_standings
+    let standings = teamArray[2]?.team_standings
+    let outcomeTotals = standings?.outcome_totals
+    
+    // Location 2: teamArray[2] directly
+    if (!standings || (typeof standings === 'object' && Object.keys(standings).length === 0)) {
+      standings = teamArray[2]
+      outcomeTotals = standings?.outcome_totals
+    }
+    
+    // Location 3: Check if teamArray[2] is an array and standings is inside
+    if (Array.isArray(teamArray[2])) {
+      const standingsInArray = teamArray[2].find((item: any) => item?.team_standings || item?.outcome_totals)
+      if (standingsInArray) {
+        standings = standingsInArray.team_standings || standingsInArray
+        outcomeTotals = standings?.outcome_totals || standingsInArray.outcome_totals
       }
     }
     
-    // Fallback to outcomeTotals if found
-    if (wins === 0 && losses === 0 && ties === 0 && outcomeTotals) {
-      wins = parseInt(outcomeTotals.wins || '0') || 0
-      losses = parseInt(outcomeTotals.losses || '0') || 0
-      ties = parseInt(outcomeTotals.ties || '0') || 0
+    // Location 4: Check teamData directly
+    if ((wins === 0 && losses === 0 && ties === 0) && (teamData.wins !== undefined || teamData.losses !== undefined)) {
+      wins = parseInt(teamData.wins || '0') || 0
+      losses = parseInt(teamData.losses || '0') || 0
+      ties = parseInt(teamData.ties || '0') || 0
+      console.log(`📊 Found record in teamData: W=${wins}, L=${losses}, T=${ties}`)
     }
     
-    // Log standings extraction for debugging
-    if (teamData.name === teams[0]?.name || teams.length === 0) {
+    // Extract from standings structure
+    if (standings && typeof standings === 'object') {
+      // Check for nested structure: standings.outcome_totals
+      if (standings.outcome_totals) {
+        const ot = standings.outcome_totals
+        wins = parseInt(ot.wins || ot.win || '0') || 0
+        losses = parseInt(ot.losses || ot.loss || '0') || 0
+        ties = parseInt(ot.ties || ot.tie || '0') || 0
+      } 
+      // Check for direct properties: standings.wins, standings.losses, standings.ties
+      else if (standings.wins !== undefined || standings.losses !== undefined) {
+        wins = parseInt(standings.wins || standings.win || '0') || 0
+        losses = parseInt(standings.losses || standings.loss || '0') || 0
+        ties = parseInt(standings.ties || standings.tie || '0') || 0
+      }
+    }
+    
+    // Fallback to outcomeTotals if found and still no wins
+    if (wins === 0 && losses === 0 && ties === 0 && outcomeTotals) {
+      wins = parseInt(outcomeTotals.wins || outcomeTotals.win || '0') || 0
+      losses = parseInt(outcomeTotals.losses || outcomeTotals.loss || '0') || 0
+      ties = parseInt(outcomeTotals.ties || outcomeTotals.tie || '0') || 0
+    }
+    
+    // Log standings extraction for debugging (for first team or if all zeros)
+    if (teams.length === 0 || (wins === 0 && losses === 0 && ties === 0)) {
       console.log(`📊 Standings extraction for ${teamData.name}:`)
-      const teamArray2Str = teamArray[2] ? JSON.stringify(teamArray[2], null, 2) : 'undefined'
-      console.log(`   teamArray[2] structure:`, teamArray2Str.substring(0, 500))
+      console.log(`   teamArray[2] exists:`, !!teamArray[2])
+      if (teamArray[2]) {
+        console.log(`   teamArray[2] type:`, Array.isArray(teamArray[2]) ? 'array' : typeof teamArray[2])
+        console.log(`   teamArray[2] keys:`, typeof teamArray[2] === 'object' && !Array.isArray(teamArray[2]) ? Object.keys(teamArray[2]).join(', ') : 'N/A')
+      }
+      const standingsStr = standings ? JSON.stringify(standings, null, 2) : 'undefined'
+      console.log(`   standings:`, standingsStr.substring(0, 500))
       const outcomeTotalsStr = outcomeTotals ? JSON.stringify(outcomeTotals, null, 2) : 'undefined'
       console.log(`   outcomeTotals:`, outcomeTotalsStr)
-      console.log(`   Extracted: W=${wins}, L=${losses}, T=${ties}`)
+      console.log(`   Final extracted: W=${wins}, L=${losses}, T=${ties}`)
     }
     
     // Extract team_id from team_key if not directly available (format: 465.l.9080.t.1)
