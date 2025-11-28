@@ -52,11 +52,19 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
       // No tokens found - automatically start OAuth flow if client ID is configured
       const clientId = process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID
       if (clientId && typeof window !== 'undefined') {
-        console.log('🔄 No tokens found, auto-starting OAuth flow...')
-        // Small delay to ensure component is fully mounted
-        setTimeout(() => {
-          handleAuthenticate()
-        }, 500)
+        // Check if we're already in the OAuth callback (don't auto-redirect if we're processing the callback)
+        const urlParams = new URLSearchParams(window.location.search)
+        const hasCallbackParams = urlParams.has('code') || urlParams.has('yahoo_tokens') || urlParams.has('yahoo_error')
+        
+        if (!hasCallbackParams) {
+          console.log('🔄 No tokens found, auto-starting OAuth flow...')
+          // Small delay to ensure component is fully mounted and avoid redirect loops
+          setTimeout(() => {
+            handleAuthenticate()
+          }, 1000)
+        } else {
+          console.log('🔄 OAuth callback detected, waiting for token processing...')
+        }
       }
     }
   }, [])
