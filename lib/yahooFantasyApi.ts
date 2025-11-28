@@ -1213,6 +1213,9 @@ export async function getTeamRoster(
           let seasonStats = null
           let otherStats = null
           
+          // Log all coverage types found for debugging
+          const foundCoverageTypes: string[] = []
+          
           for (const item of statsData) {
             if (!item || typeof item !== 'object') continue
             
@@ -1221,17 +1224,26 @@ export async function getTeamRoster(
             
             if (item.player_stats) {
               itemStats = item.player_stats
-              itemCoverageType = item.player_stats.coverage_type
+              // Check nested structure first (coverage_type might be in player_stats["0"])
+              if (item.player_stats["0"] && item.player_stats["0"].coverage_type) {
+                itemCoverageType = item.player_stats["0"].coverage_type
+              } else if (item.player_stats.coverage_type) {
+                itemCoverageType = item.player_stats.coverage_type
+              } else {
+                itemCoverageType = 'unknown'
+              }
             } else if (item.stats && Array.isArray(item.stats)) {
               itemStats = {
                 coverage_type: item.coverage_type || 'unknown',
                 coverage_value: item.coverage_value || 2025,
                 stats: item.stats
               }
-              itemCoverageType = item.coverage_type
+              itemCoverageType = item.coverage_type || 'unknown'
             }
             
-            if (itemStats) {
+            if (itemStats && itemCoverageType) {
+              foundCoverageTypes.push(itemCoverageType)
+              
               // CRITICAL: Only use season stats, reject all others
               if (itemCoverageType === 'season') {
                 seasonStats = itemStats
@@ -1240,6 +1252,15 @@ export async function getTeamRoster(
               } else {
                 console.log(`⚠️ Skipping ${itemCoverageType || 'unknown'} stats for ${playerKey} - only using season stats`)
               }
+            }
+          }
+          
+          // Log all coverage types found for this player
+          if (foundCoverageTypes.length > 0 && isFirstPlayer) {
+            console.log(`📊 All coverage types found for ${playerKey}: ${foundCoverageTypes.join(', ')}`)
+            if (!foundCoverageTypes.includes('season')) {
+              console.error(`❌ CRITICAL: No 'season' coverage type found! Only found: ${foundCoverageTypes.join(', ')}`)
+              console.error(`   This means we're getting projected/average stats instead of actual season stats!`)
             }
           }
           
@@ -1281,9 +1302,21 @@ export async function getTeamRoster(
                 console.warn(`   Using stats anyway, but they may be from wrong season`)
               }
               
-              // Extract stats array
+              // Extract stats array - check multiple possible locations
               if (playerStatsObj.stats && Array.isArray(playerStatsObj.stats)) {
                 statsArray = playerStatsObj.stats
+              } else if (playerStatsObj["1"] && Array.isArray(playerStatsObj["1"])) {
+                // Stats might be in player_stats["1"]
+                statsArray = playerStatsObj["1"]
+              } else {
+                // Try to find stats array in any numeric key
+                for (const key of Object.keys(playerStatsObj)) {
+                  if (key !== "0" && !isNaN(Number(key)) && Array.isArray(playerStatsObj[key])) {
+                    statsArray = playerStatsObj[key]
+                    console.log(`📊 Found stats array in player_stats["${key}"] for ${playerKey}`)
+                    break
+                  }
+                }
               }
               
               // Build the playerStats object
@@ -1404,17 +1437,13 @@ export async function getTeamRoster(
           
           // Ensure stats is in the correct format expected by parsePlayerStats
           if (statsArray.length > 0) {
-            // Extract coverage info - check nested structure first
+            // Extract coverage info - statsData is the playerStats object we built earlier
+            // It should have coverage_type and coverage_value as direct properties
             let coverageType = 'unknown'
             let coverageValue: number | string = 'unknown'
             
-            // Check nested structure: statsData["0"] contains coverage info
-            if (statsData && typeof statsData === 'object' && statsData["0"]) {
-              // Only use explicit coverage_type, don't infer from season property
-              coverageType = statsData["0"].coverage_type || 'unknown'
-              coverageValue = statsData["0"].coverage_value || statsData["0"].season || 'unknown'
-            } else if (statsData && typeof statsData === 'object') {
-              // Direct properties
+            // statsData is the playerStats object we built, which has coverage_type directly
+            if (statsData && typeof statsData === 'object') {
               coverageType = statsData.coverage_type || 'unknown'
               coverageValue = statsData.coverage_value || 'unknown'
             }
