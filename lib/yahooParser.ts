@@ -1262,13 +1262,24 @@ export async function parseYahooTeams(
     try {
       // Validate team_key exists
       if (!yahooTeam.team_key) {
-        console.error(`Skipping team ${yahooTeam.name} - missing team_key`, yahooTeam)
+        console.error(`❌ Skipping team ${yahooTeam.name} - missing team_key`, yahooTeam)
         continue
       }
       
-      console.log(`Fetching roster for team: ${yahooTeam.name} (key: ${yahooTeam.team_key})`)
+      console.log(`📊 Fetching roster for team: ${yahooTeam.name} (key: ${yahooTeam.team_key})`)
+      
       // getRosterFn should already include stats since we fetch them in getTeamRoster
-      const roster = await getRosterFn(yahooTeam.team_key)
+      let roster: YahooPlayer[]
+      try {
+        roster = await getRosterFn(yahooTeam.team_key)
+        console.log(`✅ Fetched roster for ${yahooTeam.name}: ${roster.length} players`)
+      } catch (rosterError: any) {
+        console.error(`❌ Failed to fetch roster for team ${yahooTeam.name} (key: ${yahooTeam.team_key}):`, rosterError)
+        console.error(`   Error message:`, rosterError?.message)
+        console.error(`   Error stack:`, rosterError?.stack)
+        // Continue with empty roster rather than failing completely
+        roster = []
+      }
       
       // Parse players - stats should already be attached from getRosterFn
       const players = roster.map(player => {
@@ -1290,12 +1301,24 @@ export async function parseYahooTeams(
         console.warn(`⚠️ Team ${yahooTeam.name} has ${playersWithoutStats} player(s) without stats - check logs above for reasons`)
       }
     } catch (error: any) {
-      console.error(`Error parsing team ${yahooTeam.name} (key: ${yahooTeam.team_key}):`, error)
-      // Continue with other teams even if one fails
+      console.error(`❌ Error parsing team ${yahooTeam.name} (key: ${yahooTeam.team_key}):`, error)
+      console.error(`   Error message:`, error?.message)
+      console.error(`   Error stack:`, error?.stack)
+      // Continue with other teams even if one fails, but log the error clearly
     }
   }
   
-  console.log(`parseYahooTeams: Successfully parsed ${teams.length} out of ${yahooTeams.length} teams`)
+  console.log(`📊 parseYahooTeams: Successfully parsed ${teams.length} out of ${yahooTeams.length} teams`)
+  
+  if (teams.length === 0 && yahooTeams.length > 0) {
+    console.error(`❌ CRITICAL: All ${yahooTeams.length} teams failed to parse!`)
+    console.error(`   This indicates a systematic issue. Check logs above for error patterns.`)
+    console.error(`   Common causes:`)
+    console.error(`   1. getTeamRoster is throwing errors for all teams`)
+    console.error(`   2. Roster structure has changed in Yahoo API`)
+    console.error(`   3. Missing or invalid team_key in YahooTeam objects`)
+    console.error(`   First team data:`, JSON.stringify(yahooTeams[0], null, 2).substring(0, 500))
+  }
   
   return teams
 }

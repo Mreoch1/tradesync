@@ -740,23 +740,30 @@ export async function getTeamRoster(
 ): Promise<YahooPlayer[]> {
   console.log(`📊 Fetching roster for ${teamKey}${season ? ` (season=${season})` : ''}`)
   
-  // Fetch roster (date parameter is kept for compatibility but not used - we use season for stats)
-  const rosterResponse = await makeApiRequest(`team/${teamKey}/roster`, accessToken)
-  
-  const team = rosterResponse.fantasy_content?.team
-  if (!Array.isArray(team) || team.length < 2) {
-    throw new Error('Invalid roster response structure')
-  }
+  try {
+    // Fetch roster (date parameter is kept for compatibility but not used - we use season for stats)
+    const rosterResponse = await makeApiRequest(`team/${teamKey}/roster`, accessToken)
+    
+    const team = rosterResponse.fantasy_content?.team
+    if (!Array.isArray(team) || team.length < 2) {
+      const responseStr = JSON.stringify(rosterResponse, null, 2).substring(0, 1000)
+      console.error(`❌ Invalid roster response structure for ${teamKey}`)
+      console.error(`   Response structure:`, responseStr)
+      throw new Error(`Invalid roster response structure for team ${teamKey}. Expected team array with length >= 2, got: ${Array.isArray(team) ? team.length : typeof team}`)
+    }
 
-  const roster = team[1]?.roster
-  if (!roster || !Array.isArray(roster)) {
-    throw new Error('No roster data in response')
-  }
+    const roster = team[1]?.roster
+    if (!roster || !Array.isArray(roster)) {
+      const teamStr = JSON.stringify(team, null, 2).substring(0, 1000)
+      console.error(`❌ No roster data in response for ${teamKey}`)
+      console.error(`   team[1] structure:`, teamStr)
+      throw new Error(`No roster data in response for team ${teamKey}. team[1] is: ${typeof team[1]}, roster is: ${typeof roster}`)
+    }
 
-  const players: YahooPlayer[] = []
-  
-  // Extract players from roster
-  roster.forEach((playerObj: any) => {
+    const players: YahooPlayer[] = []
+    
+    // Extract players from roster
+    roster.forEach((playerObj: any) => {
     if (!playerObj?.player || !Array.isArray(playerObj.player)) return
     
     const playerArray = playerObj.player
@@ -764,16 +771,16 @@ export async function getTeamRoster(
     
     if (!playerData?.player_key) {
       console.warn('Skipping player - missing player_key')
-              return
-            }
-            
+      return
+    }
+
     // Extract ownership from playerArray
     let ownership: any = undefined
     for (let i = 1; i < playerArray.length; i++) {
       const item = playerArray[i]
       if (item?.ownership) {
         ownership = item.ownership
-                break
+        break
       }
     }
 
@@ -798,14 +805,26 @@ export async function getTeamRoster(
     })
   })
 
-  console.log(`✅ Parsed ${players.length} players from roster`)
+    console.log(`✅ Parsed ${players.length} players from roster`)
 
-  // Fetch stats for all players if season is provided
-  if (season && players.length > 0) {
-    await fetchPlayerStats(accessToken, players, season)
+    // Fetch stats for all players if season is provided
+    if (season && players.length > 0) {
+      try {
+        await fetchPlayerStats(accessToken, players, season)
+      } catch (statsError: any) {
+        console.error(`❌ Failed to fetch stats for team ${teamKey}:`, statsError?.message)
+        console.error(`   Continuing without stats - players will have default values`)
+        // Don't throw - return players without stats rather than failing completely
+      }
+    }
+
+    return players
+  } catch (error: any) {
+    console.error(`❌ getTeamRoster failed for ${teamKey}:`, error?.message)
+    console.error(`   Error stack:`, error?.stack)
+    // Re-throw with more context
+    throw new Error(`Failed to fetch roster for team ${teamKey}: ${error?.message || 'Unknown error'}`)
   }
-  
-  return players
 }
 
 /**
