@@ -5,7 +5,6 @@ import { Trade, TradeAnalysis, Player, DraftPick, LeagueSettings } from '@/types
 import { Team } from '@/types/teams'
 import { analyzeTrade } from '@/lib/analyzer'
 import { teamManager } from '@/lib/teamManager'
-import { createMooninitesTeam } from '@/lib/initialTeams'
 import TradeSideBuilder from './TradeSideBuilder'
 import TradeAnalysisResults from './TradeAnalysisResults'
 import LeagueSettingsComponent from './LeagueSettings'
@@ -29,11 +28,22 @@ export default function TradeAnalyzer() {
     scoringType: 'categories',
   })
 
-  // Initialize with Mooninites team
+  // Load teams from storage (populated by Yahoo sync)
   useEffect(() => {
-    const mooninites = createMooninitesTeam()
-    teamManager.addTeam(mooninites)
     setTeams([...teamManager.getTeams()])
+    
+    // Listen for teams updates from Yahoo sync
+    const handleTeamsUpdate = () => {
+      setTeams([...teamManager.getTeams()])
+    }
+    
+    window.addEventListener('teamsUpdated', handleTeamsUpdate)
+    window.addEventListener('teamsStorageUpdated', handleTeamsUpdate)
+    
+    return () => {
+      window.removeEventListener('teamsUpdated', handleTeamsUpdate)
+      window.removeEventListener('teamsStorageUpdated', handleTeamsUpdate)
+    }
   }, [])
 
   // Get available players based on selected team

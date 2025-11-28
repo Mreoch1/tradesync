@@ -4,14 +4,6 @@ import { useEffect, useState } from 'react'
 import { Player } from '@/types'
 import { Team } from '@/types/teams'
 import { teamManager } from '@/lib/teamManager'
-import { createMooninitesTeam } from '@/lib/initialTeams'
-import { createBrainReignsTeam } from '@/lib/initialTeams'
-import { createByeWeekTeam } from '@/lib/initialTeams'
-import { createGoonSquadTeam } from '@/lib/initialTeams'
-import { createIkeAndIkeTeam } from '@/lib/initialTeams'
-import { createIngloriousBastardsTeam } from '@/lib/initialTeams'
-import { createMismanagewhomeTeam } from '@/lib/initialTeams'
-import { createZoeyTeam } from '@/lib/initialTeams'
 import Header from '@/components/ui/Header'
 import TradeBlock from '@/components/TradeBlock'
 import PlayerSearch from '@/components/PlayerSearch'
@@ -24,24 +16,21 @@ export default function Home() {
   const [tradeBlock, setTradeBlock] = useState<Player[]>([])
 
   useEffect(() => {
-    // Initialize teams
-    const mooninites = createMooninitesTeam()
-    const brainReigns = createBrainReignsTeam()
-    const byeWeek = createByeWeekTeam()
-    const goonSquad = createGoonSquadTeam()
-    const ikeAndIke = createIkeAndIkeTeam()
-    const ingloriousBastards = createIngloriousBastardsTeam()
-    const mismanagewhome = createMismanagewhomeTeam()
-    const zoey = createZoeyTeam()
-    teamManager.addTeam(mooninites)
-    teamManager.addTeam(brainReigns)
-    teamManager.addTeam(byeWeek)
-    teamManager.addTeam(goonSquad)
-    teamManager.addTeam(ikeAndIke)
-    teamManager.addTeam(ingloriousBastards)
-    teamManager.addTeam(mismanagewhome)
-    teamManager.addTeam(zoey)
+    // Load teams from storage (populated by Yahoo sync)
     setTeams(teamManager.getTeams())
+    
+    // Listen for teams updates from Yahoo sync
+    const handleTeamsUpdate = () => {
+      setTeams([...teamManager.getTeams()])
+    }
+    
+    window.addEventListener('teamsUpdated', handleTeamsUpdate)
+    window.addEventListener('teamsStorageUpdated', handleTeamsUpdate)
+    
+    return () => {
+      window.removeEventListener('teamsUpdated', handleTeamsUpdate)
+      window.removeEventListener('teamsStorageUpdated', handleTeamsUpdate)
+    }
 
     // Load trade block from sessionStorage
     const saved = sessionStorage.getItem('tradeBlock')

@@ -745,19 +745,58 @@ export async function getTeamRoster(
     const rosterResponse = await makeApiRequest(`team/${teamKey}/roster`, accessToken)
     
     const team = rosterResponse.fantasy_content?.team
-    if (!Array.isArray(team) || team.length < 2) {
+    if (!Array.isArray(team) || team.length < 1) {
       const responseStr = JSON.stringify(rosterResponse, null, 2).substring(0, 1000)
       console.error(`❌ Invalid roster response structure for ${teamKey}`)
       console.error(`   Response structure:`, responseStr)
-      throw new Error(`Invalid roster response structure for team ${teamKey}. Expected team array with length >= 2, got: ${Array.isArray(team) ? team.length : typeof team}`)
+      throw new Error(`Invalid roster response structure for team ${teamKey}. Expected team array, got: ${Array.isArray(team) ? team.length : typeof team}`)
     }
 
-    const roster = team[1]?.roster
+    // Yahoo API returns team as nested array: team: [[{team_key}, {team_id}, {name}, [], {url}, ..., {roster: [...]}]]
+    // We need to find the roster in the nested structure
+    let roster: any = null
+    
+    // Check if team[0] is an array (nested structure)
+    if (Array.isArray(team[0])) {
+      const teamArray = team[0]
+      // Search through the nested array for roster
+      for (let i = 0; i < teamArray.length; i++) {
+        const item = teamArray[i]
+        if (item && typeof item === 'object' && item.roster && Array.isArray(item.roster)) {
+          roster = item.roster
+          break
+        }
+      }
+    } else if (team[1]?.roster && Array.isArray(team[1].roster)) {
+      // Fallback: try team[1].roster (non-nested structure)
+      roster = team[1].roster
+    } else {
+      // Search through all team array elements for roster
+      for (let i = 0; i < team.length; i++) {
+        const item = team[i]
+        if (item && typeof item === 'object' && item.roster && Array.isArray(item.roster)) {
+          roster = item.roster
+          break
+        }
+        // Also check if item is an array and search within it
+        if (Array.isArray(item)) {
+          for (let j = 0; j < item.length; j++) {
+            const subItem = item[j]
+            if (subItem && typeof subItem === 'object' && subItem.roster && Array.isArray(subItem.roster)) {
+              roster = subItem.roster
+              break
+            }
+          }
+          if (roster) break
+        }
+      }
+    }
+
     if (!roster || !Array.isArray(roster)) {
-      const teamStr = JSON.stringify(team, null, 2).substring(0, 1000)
+      const teamStr = JSON.stringify(team, null, 2).substring(0, 2000)
       console.error(`❌ No roster data in response for ${teamKey}`)
-      console.error(`   team[1] structure:`, teamStr)
-      throw new Error(`No roster data in response for team ${teamKey}. team[1] is: ${typeof team[1]}, roster is: ${typeof roster}`)
+      console.error(`   team structure:`, teamStr)
+      throw new Error(`No roster data in response for team ${teamKey}. Searched through team array but couldn't find roster property.`)
     }
 
     const players: YahooPlayer[] = []
