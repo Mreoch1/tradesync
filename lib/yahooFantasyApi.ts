@@ -1348,21 +1348,15 @@ export async function getTeamRoster(
               stats: statsArray
             }
             
-            // Special logging for goalies with stat definitions
+            // Special logging for goalies
             const isGoalie = player.display_position === 'G' || player.position === 'G'
             if (isGoalie) {
-              // Import stat definitions cache synchronously (it's already loaded at sync start)
-              const yahooParser = await import('./yahooParser')
-              if (yahooParser.hasStatDefinitions()) {
-                // Get the cache - we need to access it via a getter function
-                // For now, just log the stat IDs without names since we can't easily access the cache
-                const goalieStatIds = statsArray.map(s => {
-                  const statId = s.stat_id || (s as any).stat?.stat_id
-                  const statValue = s.value || (s as any).stat?.value
-                  return `stat_id ${statId}=${statValue}`
-                }).join(', ')
-                console.log(`🎯 GOALIE STATS: ${player.name?.full || player.name} | ${goalieStatIds}`)
-              }
+              const goalieStatIds = statsArray.map(s => {
+                const statId = s.stat_id || (s as any).stat?.stat_id
+                const statValue = s.value || (s as any).stat?.value
+                return `stat_id ${statId}=${statValue}`
+              }).join(', ')
+              console.log(`🎯 GOALIE STATS: ${player.name?.full || player.name} | ${goalieStatIds}`)
             }
             
             console.log(`✅ Attached ${statsArray.length} SEASON stats to ${player.name?.full || player.name} (coverage: ${coverageType}, value: ${coverageValue})`)
