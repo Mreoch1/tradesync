@@ -386,7 +386,7 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
             )}
             {process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID && (
               <p className="text-xs text-green-600 mt-2">
-                ✅ Client ID configured. Click "Connect Yahoo Account" to authenticate.
+                ✅ Client ID configured. Click &quot;Connect Yahoo Account&quot; to authenticate.
               </p>
             )}
           </div>
