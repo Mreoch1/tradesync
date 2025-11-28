@@ -91,11 +91,19 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
 
   const handleAuthenticate = () => {
     const clientId = process.env.NEXT_PUBLIC_YAHOO_CLIENT_ID
-    console.log('🔍 Debug - NEXT_PUBLIC_YAHOO_CLIENT_ID:', clientId ? 'Set' : 'NOT SET')
+    console.log('🔍 Debug - NEXT_PUBLIC_YAHOO_CLIENT_ID:', clientId ? `Set (length: ${clientId.length})` : 'NOT SET')
+    console.log('🔍 Debug - Client ID value (first 20 chars):', clientId ? clientId.substring(0, 20) + '...' : 'N/A')
     console.log('🔍 Debug - process.env keys:', Object.keys(process.env).filter(k => k.includes('YAHOO')))
     
     if (!clientId) {
       setError('Yahoo Client ID not configured. Please set NEXT_PUBLIC_YAHOO_CLIENT_ID environment variable in Netlify and trigger a new deployment.')
+      return
+    }
+
+    // Trim whitespace from client ID (in case it was set with extra spaces)
+    const trimmedClientId = clientId.trim()
+    if (trimmedClientId.length === 0) {
+      setError('Yahoo Client ID is empty. Please check your Netlify environment variables.')
       return
     }
 
@@ -111,15 +119,27 @@ export default function YahooSync({ onTeamsSynced, gameKey = 'all' }: YahooSyncP
     // Since Yahoo redirects to this URL, the origins should match
     const redirectUri = `${window.location.origin}/api/auth/yahoo/callback`
     
+    console.log('🔍 Debug - Redirect URI:', redirectUri)
+    console.log('🔍 Debug - Window origin:', window.location.origin)
+    
     // Validate redirect URI matches expected format
     if (!redirectUri.startsWith('https://')) {
       setError('OAuth requires HTTPS. Please access the app via HTTPS URL.')
       return
     }
     
+    // Validate redirect URI matches what's configured in Yahoo
+    const expectedRedirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
+    if (redirectUri !== expectedRedirectUri) {
+      console.warn(`⚠️ Redirect URI mismatch! Expected: ${expectedRedirectUri}, Got: ${redirectUri}`)
+      setError(`Redirect URI mismatch. Expected: ${expectedRedirectUri}, Got: ${redirectUri}. Please access the app from the correct URL.`)
+      return
+    }
+    
     try {
-      const authUrl = getAuthorizationUrl(clientId, redirectUri)
-      console.log('OAuth authorization URL:', authUrl)
+      const authUrl = getAuthorizationUrl(trimmedClientId, redirectUri)
+      console.log('🔍 Debug - Full OAuth URL:', authUrl)
+      console.log('🔍 Debug - Client ID in URL:', trimmedClientId.substring(0, 30) + '...')
       window.location.href = authUrl
     } catch (err: any) {
       console.error('Failed to generate OAuth URL:', err)
