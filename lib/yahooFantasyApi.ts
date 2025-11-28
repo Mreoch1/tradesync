@@ -507,9 +507,9 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
     
     if (!teamObj?.team || !Array.isArray(teamObj.team)) {
       console.warn(`Skipping invalid team at key ${key}`)
-      return
-    }
-
+        return
+      }
+      
     const teamArray = teamObj.team
     
     // Extract team data from teamArray[0]
@@ -518,29 +518,29 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
       console.warn(`Skipping team at key ${key} - missing team_key`)
       return
     }
-
+    
     // Extract manager from teamArray[1]
     const managers = teamArray[1]?.managers
     let managerName: string | undefined
     if (managers && typeof managers === 'object') {
-      const managerValues = Object.values(managers)
-      if (managerValues.length > 0) {
-        const managerObj = managerValues[0] as any
-        if (managerObj?.manager) {
+    const managerValues = Object.values(managers)
+    if (managerValues.length > 0) {
+      const managerObj = managerValues[0] as any
+      if (managerObj?.manager) {
           const managerData = Array.isArray(managerObj.manager) 
             ? extractYahooData<any>(managerObj.manager, 0)
             : managerObj.manager
-          managerName = managerData?.nickname
+        managerName = managerData?.nickname
         }
       }
     }
-
+    
     // Extract standings from teamArray[2]
     const standings = teamArray[2]?.team_standings
     let wins = 0, losses = 0, ties = 0
     
     if (standings?.outcome_totals) {
-      const ot = standings.outcome_totals
+        const ot = standings.outcome_totals
       wins = parseInt(ot.wins || ot.win || '0', 10) || 0
       losses = parseInt(ot.losses || ot.loss || '0', 10) || 0
       ties = parseInt(ot.ties || ot.tie || '0', 10) || 0
@@ -560,7 +560,7 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
       ties,
     })
   })
-
+  
   console.log(`✅ Parsed ${teams.length} teams from league ${leagueKey}`)
   return teams
 }
@@ -579,10 +579,10 @@ async function fetchPlayerStats(
   console.log(`📊 Fetching stats for ${playerKeys.length} players (season=${season})`)
 
   // Fetch in batches of 25 (Yahoo API limit)
-  const BATCH_SIZE = 25
-  
-  for (let i = 0; i < playerKeys.length; i += BATCH_SIZE) {
-    const batch = playerKeys.slice(i, i + BATCH_SIZE)
+      const BATCH_SIZE = 25
+      
+      for (let i = 0; i < playerKeys.length; i += BATCH_SIZE) {
+        const batch = playerKeys.slice(i, i + BATCH_SIZE)
     const endpoint = `players;player_keys=${batch.join(',')}/stats;type=season;season=${season}`
     
     try {
@@ -594,6 +594,9 @@ async function fetchPlayerStats(
         continue
       }
 
+      // Import yahooParser for Celebrini logging (outside forEach to avoid async issues)
+      const yahooParser = await import('./yahooParser')
+      
       // Process each player's stats
       Object.values(playersData).forEach((playerObj: any) => {
         if (!playerObj?.player || !Array.isArray(playerObj.player)) return
@@ -665,7 +668,26 @@ async function fetchPlayerStats(
             })),
           }
 
-          console.log(`✅ Attached stats to ${player.name?.full || playerKey} (${seasonStats.stats.length} stats)`)
+          const playerName = player.name?.full || playerKey
+          console.log(`✅ Attached stats to ${playerName} (${seasonStats.stats.length} stats)`)
+          
+          // Enhanced logging for Celebrini to help identify stat_id mappings
+          if (playerName.toLowerCase().includes('celebrini')) {
+            const allStats = player.player_stats.stats.map(s => {
+              const statName = yahooParser.hasStatDefinitions() 
+                ? yahooParser.getStatDefinitionsCache()[s.stat_id] || 'unknown'
+                : 'unknown'
+              return `stat_id ${s.stat_id} (${statName})=${s.value}`
+            }).join(', ')
+            
+            console.log(`\n${'='.repeat(80)}`)
+            console.log(`🎯 CELEBRINI STATS ANALYSIS`)
+            console.log(`${'='.repeat(80)}`)
+            console.log(`📊 All stat values from API: ${allStats}`)
+            console.log(`📊 Expected: G:14, A:20, P:34, +/-:3, PIM:12, PPP:12, SHP:0, GWG:3, SOG:70, FW:181, HIT:14, BLK:16`)
+            console.log(`📊 Coverage: ${player.player_stats.coverage_type}, Season: ${player.player_stats.coverage_value}`)
+            console.log(`${'='.repeat(80)}\n`)
+          }
         } else {
           console.warn(`⚠️ No season stats found for player ${playerKey}`)
         }
@@ -720,7 +742,7 @@ export async function getTeamRoster(
       const item = playerArray[i]
       if (item?.ownership) {
         ownership = item.ownership
-        break
+                break
       }
     }
 
@@ -751,7 +773,7 @@ export async function getTeamRoster(
   if (season && players.length > 0) {
     await fetchPlayerStats(accessToken, players, season)
   }
-
+  
   return players
 }
 
