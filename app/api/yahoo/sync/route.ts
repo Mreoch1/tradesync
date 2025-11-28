@@ -194,9 +194,23 @@ export async function POST(request: NextRequest) {
         let teams
         try {
           teams = await parseYahooTeams(yahooTeams, getRoster)
-          console.log(`Successfully parsed ${teams.length} teams from ${yahooTeams.length} Yahoo teams`)
+          console.log(`✅ Successfully parsed ${teams.length} teams from ${yahooTeams.length} Yahoo teams`)
+          
+          // Log summary of parsed teams
+          const teamsWithPlayers = teams.filter(t => t.players && t.players.length > 0).length
+          const teamsWithRecords = teams.filter(t => t.record && t.record !== '0-0-0').length
+          const totalPlayers = teams.reduce((sum, t) => sum + (t.players?.length || 0), 0)
+          const totalPlayersWithStats = teams.reduce((sum, t) => 
+            sum + (t.players?.filter(p => p.stats && Object.keys(p.stats).length > 0).length || 0), 0
+          )
+          
+          console.log(`📊 Sync Summary:`)
+          console.log(`   Teams: ${teams.length} total, ${teamsWithPlayers} with players, ${teamsWithRecords} with records`)
+          console.log(`   Players: ${totalPlayers} total, ${totalPlayersWithStats} with stats`)
         } catch (parseError: any) {
-          console.error('Error parsing teams:', parseError)
+          console.error('❌ Error parsing teams:', parseError)
+          console.error('   Error message:', parseError?.message)
+          console.error('   Error stack:', parseError?.stack)
           const errorMessage = parseError?.message || parseError?.toString() || 'Unknown parsing error'
           return NextResponse.json(
             { error: `Failed to parse teams: ${errorMessage}. Check server logs for full details.` },
@@ -205,12 +219,17 @@ export async function POST(request: NextRequest) {
         }
 
         if (teams.length === 0) {
+          console.error(`❌ CRITICAL: Teams were fetched but parsing resulted in 0 teams`)
+          console.error(`   Found ${yahooTeams.length} Yahoo teams but couldn't convert them`)
+          console.error(`   This indicates a systematic parsing issue`)
           return NextResponse.json(
             { error: `Teams were fetched but parsing resulted in 0 teams. This may indicate a parsing issue. Found ${yahooTeams.length} Yahoo teams but couldn't convert them. Check server logs for details.` },
             { status: 500 }
           )
         }
 
+        // Log final response before sending
+        console.log(`📤 Sending ${teams.length} teams to client`)
         return NextResponse.json({ teams })
       }
 

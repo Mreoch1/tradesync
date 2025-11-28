@@ -568,10 +568,17 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
     let wins = 0, losses = 0, ties = 0
     
     if (standings?.outcome_totals) {
-        const ot = standings.outcome_totals
+      const ot = standings.outcome_totals
       wins = parseInt(ot.wins || ot.win || '0', 10) || 0
       losses = parseInt(ot.losses || ot.loss || '0', 10) || 0
       ties = parseInt(ot.ties || ot.tie || '0', 10) || 0
+      
+      // Log if we successfully parsed standings
+      if (wins > 0 || losses > 0 || ties > 0) {
+        console.log(`📊 Team ${teamData.name}: Record ${wins}-${losses}-${ties}`)
+      }
+    } else {
+      console.warn(`⚠️ Team ${teamData.name}: No standings data found (teamArray[2]?.team_standings missing)`)
     }
 
     const teamId = teamData.team_id || teamData.team_key?.split('.')?.[3] || ''

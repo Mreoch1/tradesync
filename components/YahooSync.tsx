@@ -367,10 +367,21 @@ Visit /diagnostics to see detailed configuration.`
         } else {
           // Validate teams have data before replacing existing teams
           // Include teams that have either players OR a valid record (not 0-0-0)
+          console.log(`📊 Validating ${data.teams.length} teams from sync response...`)
+          
           const teamsWithData = data.teams.filter((team: Team) => {
             const hasPlayers = team.players && team.players.length > 0
             const hasRecord = team.record && team.record !== '0-0-0'
-            return hasPlayers || hasRecord
+            const isValid = hasPlayers || hasRecord
+            
+            // Log each team's status for debugging
+            if (!isValid) {
+              console.warn(`⚠️ Team "${team.name}" filtered out: ${team.players?.length || 0} players, record: ${team.record}`)
+            } else {
+              console.log(`✅ Team "${team.name}" included: ${team.players?.length || 0} players, record: ${team.record}`)
+            }
+            
+            return isValid
           })
 
           const filteredOut = data.teams.length - teamsWithData.length
@@ -382,8 +393,9 @@ Visit /diagnostics to see detailed configuration.`
                 const hasRecord = team.record && team.record !== '0-0-0'
                 return !(hasPlayers || hasRecord)
               })
-              .map((team: Team) => team.name)
-            console.warn(`⚠️ Filtered out ${filteredOut} team(s) with no data: ${filteredTeamNames.join(', ')}`)
+              .map((team: Team) => `${team.name} (${team.players?.length || 0} players, ${team.record})`)
+            console.warn(`⚠️ Filtered out ${filteredOut} team(s) with no data:`)
+            filteredTeamNames.forEach(name => console.warn(`   - ${name}`))
             console.warn(`   These teams have 0 players and 0-0-0 record. They may have failed to fetch roster.`)
           }
 
