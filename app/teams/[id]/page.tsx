@@ -194,21 +194,22 @@ export default function TeamPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-[1200px] mx-auto px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               <Link
                 href="/"
-                className="text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-gray-500 hover:text-gray-700 transition-colors flex-shrink-0"
+                aria-label="Back to home"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </Link>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">{team.name}</h1>
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">{team.name}</h1>
                 {team.owner && (
-                  <p className="text-sm text-gray-500">Owner: {team.owner}</p>
+                  <p className="text-xs sm:text-sm text-gray-500">Owner: {team.owner}</p>
                 )}
               </div>
             </div>
