@@ -17,6 +17,19 @@ This document is the authoritative source for all project state, decisions, chan
 
 ## Current Session Changes (2025-01-XX)
 
+### Production Observation (2025-01-XX)
+
+**Status:** ⚠️ Issue Confirmed
+
+- **Observation:** All teams showing 0-0-0 records in production
+- **Location:** https://aitradr.netlify.app
+- **Details:** 
+  - Yahoo sync working (10 teams synced successfully)
+  - All teams display "Record: 0-0-0"
+  - Console shows multiple "0-0-0" record logs
+  - New standings parser created but not yet integrated
+- **Action Required:** Integrate `parseStandings()` module into sync route
+
 ### API Remediation Implementation
 
 **Status:** 🚧 In Progress
@@ -206,15 +219,21 @@ lib/yahoo/
 
 ### High Priority
 
-1. **Migrate yahooParser.ts to use dynamic stat mappings**
+1. **Fix Standings 0-0-0 Records in Production** ⚠️ **URGENT**
+   - **Issue:** All teams showing 0-0-0 records (confirmed in production)
+   - **Action:** Integrate `parseStandings()` from `lib/yahoo/standings.ts` into sync route
+   - **Files:** `app/api/yahoo/sync/route.ts`
+   - **Status:** 🚧 Pending - **Blocks production fix**
+
+2. **Migrate yahooParser.ts to use dynamic stat mappings**
    - Remove hardcoded stat ID fallbacks
    - Use `getStatIdByName()` from `lib/yahoo/statDefinitions.ts`
    - Fail-fast if stat definitions unavailable
    - **Status:** 🚧 Pending
 
-2. **Update sync route to use new modules**
+3. **Update sync route to use new modules**
    - Use `getSeason()` instead of `getLeagueInfo()`
-   - Use `parseStandings()` for team standings
+   - Use `parseStandings()` for team standings ⚠️ **Critical for standings fix**
    - Use `parseRoster()` for roster parsing
    - Use `getStatDefinitions()` before parsing stats
    - **Status:** 🚧 Pending
@@ -275,11 +294,13 @@ lib/yahoo/
    - **Status:** ✅ Addressed by canonical game endpoint approach
    - **Resolution:** Use `getSeason()` from game endpoint
 
-4. **Standings 0-0-0 Records**
-   - **Issue:** Teams sometimes show 0-0-0 records
-   - **Root Cause:** Standings not found in expected location
-   - **Status:** ✅ Addressed by dedicated standings parser
-   - **Resolution:** Use `parseStandings()` with fail-fast
+4. **Standings 0-0-0 Records** ⚠️ **CONFIRMED IN PRODUCTION**
+   - **Issue:** All teams showing 0-0-0 records in production (observed 2025-01-XX)
+   - **Root Cause:** Standings not found in expected location, old code still in use
+   - **Status:** ✅ Parser created, 🚧 **Integration pending** - new `parseStandings()` not yet integrated
+   - **Resolution:** Integrate `parseStandings()` from `lib/yahoo/standings.ts` into sync route
+   - **Impact:** All 10 teams display 0-0-0 records, affecting user experience
+   - **Priority:** High - visible issue in production
 
 ### OAuth Issues
 
