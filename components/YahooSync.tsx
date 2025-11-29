@@ -159,9 +159,9 @@ Redirect URI: ${redirectUri}`
     }
     
     try {
-      const authUrl = getAuthorizationUrl(trimmedClientId, cleanRedirectUri)
+      const authUrl = getAuthorizationUrl(trimmedClientId, redirectUri)
       console.log('🔄 Redirecting to Yahoo OAuth')
-      console.log('🔄 Redirect URI being sent:', cleanRedirectUri)
+      console.log('🔄 Redirect URI being sent:', redirectUri)
       console.log('🔄 Make sure this EXACT URI is in Yahoo Developer Portal')
       console.log('🔄 Client ID:', trimmedClientId.substring(0, 30) + '...')
       
@@ -171,10 +171,10 @@ Redirect URI: ${redirectUri}`
       console.error('❌ Failed to generate OAuth URL:', err)
       const errorMsg = `Failed to start OAuth authentication: ${err.message || 'Unknown error'}
 
-Redirect URI being used: ${cleanRedirectUri}
+Redirect URI being used: ${redirectUri}
 
 Troubleshooting:
-1. Verify this EXACT redirect URI is in Yahoo Developer Portal: ${cleanRedirectUri}
+1. Verify this EXACT redirect URI is in Yahoo Developer Portal: ${redirectUri}
 2. Check NEXT_PUBLIC_YAHOO_CLIENT_ID is set in Netlify
 3. Ensure no trailing slashes or extra spaces
 4. Wait 2-5 minutes after updating Yahoo Developer Portal
