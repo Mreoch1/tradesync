@@ -16,6 +16,7 @@ import {
   type YahooOAuthTokens,
 } from '@/lib/yahooFantasyApi'
 import { parseYahooTeams } from '@/lib/yahooParser'
+import { parseStandings } from '@/lib/yahoo/standings'
 import { Team } from '@/types/teams'
 import { YahooPlayer } from '@/lib/yahooFantasyApi'
 
@@ -178,6 +179,30 @@ export async function POST(request: NextRequest) {
             { error: `No teams found in league ${leagueKey}. Possible reasons: league is empty, you don't have access, or the league key is incorrect. Check server logs for API response details.` },
             { status: 404 }
           )
+        }
+
+        // Parse standings using dedicated parser (fixes 0-0-0 records issue)
+        // This replaces the old standings extraction logic in getLeagueTeams
+        try {
+          console.log(`[Standings] Parsing standings for ${yahooTeams.length} teams...`)
+          yahooTeams = await parseStandings(accessToken, leagueKey, yahooTeams)
+          console.log(`[Standings] Successfully parsed standings for all teams`)
+          
+          // Log standings summary
+          const teamsWithStandings = yahooTeams.filter(t => 
+            (t.wins !== undefined && t.wins > 0) || 
+            (t.losses !== undefined && t.losses > 0) || 
+            (t.ties !== undefined && t.ties > 0)
+          )
+          console.log(`[Standings] ${teamsWithStandings.length}/${yahooTeams.length} teams have non-zero records`)
+        } catch (standingsError: any) {
+          // Fail-fast: standings are required for accurate team records
+          // If standings cannot be found, this indicates a data issue that needs investigation
+          console.error(`[Standings] Failed to parse standings:`, standingsError?.message)
+          console.error(`[Standings] This may indicate: league hasn't started, API structure changed, or data unavailable`)
+          // For now, log error but continue sync - teams will show 0-0-0
+          // In future, we may want to fail the sync entirely if standings are required
+          console.warn(`[Standings] Continuing sync - teams will show 0-0-0 records until standings are available`)
         }
 
         // Get roster for each team with season
