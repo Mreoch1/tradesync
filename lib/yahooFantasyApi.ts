@@ -814,9 +814,35 @@ async function fetchPlayerStats(
 
         // Extract stats from playerArray[1]
         const statsData = playerArray[1]
-        if (!statsData) return
+        if (!statsData) {
+          // DEBUG: Log structure for first player to understand response format
+          if (playerKey === batch[0]) {
+            console.log(`🔍 [Stats Debug] Player ${playerKey}: No statsData at playerArray[1]`)
+            console.log(`   playerArray length: ${playerArray.length}`)
+            console.log(`   playerArray structure: ${JSON.stringify(playerArray.slice(0, 3)).substring(0, 300)}`)
+          }
+          playersWithoutStats++
+          return
+        }
+
+        // DEBUG: Log the actual structure for first player in batch
+        if (playerKey === batch[0]) {
+          console.log(`🔍 [Stats Debug] First player ${playerKey} statsData structure:`)
+          console.log(`   Type: ${Array.isArray(statsData) ? 'array' : typeof statsData}`)
+          if (Array.isArray(statsData)) {
+            console.log(`   Array length: ${statsData.length}`)
+            if (statsData.length > 0) {
+              console.log(`   First item type: ${typeof statsData[0]}`)
+              console.log(`   First item keys: ${Object.keys(statsData[0] || {}).join(', ')}`)
+            }
+          } else {
+            console.log(`   Keys: ${Object.keys(statsData).join(', ')}`)
+          }
+          console.log(`   Sample: ${JSON.stringify(statsData).substring(0, 800)}`)
+        }
 
         // Find season stats (coverage_type='season')
+        // Note: Don't require exact coverage_value match - season might not have started yet
         let seasonStats: any = null
         
         if (Array.isArray(statsData)) {
@@ -825,30 +851,71 @@ async function fetchPlayerStats(
             if (statSet?.player_stats) {
               const ps = statSet.player_stats
               // Check if it's an object with coverage_type
-              if (ps.coverage_type === 'season' && ps.coverage_value === parseInt(season, 10)) {
+              if (ps.coverage_type === 'season') {
+                // Accept any season stats, don't require exact coverage_value match
                 seasonStats = ps
+                if (playerKey === batch[0]) {
+                  console.log(`✅ [Stats Debug] Found season stats in array, coverage_value: ${ps.coverage_value}`)
+                }
                 break
               }
               // Check if it's an object with numeric keys (Yahoo format)
               if (typeof ps === 'object' && !Array.isArray(ps)) {
-                const firstKey = Object.keys(ps)[0]
-                if (ps[firstKey]?.coverage_type === 'season') {
-                  seasonStats = ps[firstKey]
-                  break
+                for (const key of Object.keys(ps)) {
+                  if (ps[key]?.coverage_type === 'season') {
+                    seasonStats = ps[key]
+                    if (playerKey === batch[0]) {
+                      console.log(`✅ [Stats Debug] Found season stats in numeric key ${key}, coverage_value: ${ps[key].coverage_value}`)
+                    }
+                    break
+                  }
                 }
+                if (seasonStats) break
               }
             }
           }
         } else if (statsData?.player_stats) {
           const ps = statsData.player_stats
           // Direct player_stats object
-          if (ps.coverage_type === 'season' && ps.coverage_value === parseInt(season, 10)) {
+          if (ps.coverage_type === 'season') {
+            // Accept any season stats
             seasonStats = ps
+            if (playerKey === batch[0]) {
+              console.log(`✅ [Stats Debug] Found direct season stats, coverage_value: ${ps.coverage_value}`)
+            }
           } else if (typeof ps === 'object' && !Array.isArray(ps)) {
             // Check numeric keys
-            const firstKey = Object.keys(ps)[0]
-            if (ps[firstKey]?.coverage_type === 'season') {
-              seasonStats = ps[firstKey]
+            for (const key of Object.keys(ps)) {
+              if (ps[key]?.coverage_type === 'season') {
+                seasonStats = ps[key]
+                if (playerKey === batch[0]) {
+                  console.log(`✅ [Stats Debug] Found season stats in numeric key ${key}, coverage_value: ${ps[key].coverage_value}`)
+                }
+                break
+              }
+            }
+          }
+        }
+
+        // If no season stats found, log what we did find
+        if (!seasonStats && playerKey === batch[0]) {
+          console.warn(`⚠️ [Stats Debug] No season stats found for ${playerKey}`)
+          console.warn(`   statsData type: ${Array.isArray(statsData) ? 'array' : typeof statsData}`)
+          if (Array.isArray(statsData)) {
+            statsData.forEach((item, idx) => {
+              if (item?.player_stats) {
+                const ps = item.player_stats
+                console.warn(`   Array[${idx}]: coverage_type=${ps.coverage_type}, coverage_value=${ps.coverage_value}`)
+              }
+            })
+          } else if (statsData?.player_stats) {
+            const ps = statsData.player_stats
+            if (typeof ps === 'object' && !Array.isArray(ps)) {
+              Object.keys(ps).forEach(key => {
+                console.warn(`   Key ${key}: coverage_type=${ps[key]?.coverage_type}, coverage_value=${ps[key]?.coverage_value}`)
+              })
+            } else {
+              console.warn(`   Direct: coverage_type=${ps.coverage_type}, coverage_value=${ps.coverage_value}`)
             }
           }
         }
