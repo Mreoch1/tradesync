@@ -430,7 +430,7 @@ fantasy-sports-trade-analyzer/
 
 ## Change Log
 
-### 2025-01-XX - Standings Parser Integration (Current)
+### 2025-01-XX - Standings Parser Integration (Commit: 00962d9)
 - Integrated `parseStandings()` from `lib/yahoo/standings.ts` into sync route
 - Fixes production issue where all teams showed 0-0-0 records
 - Parser searches local team response first, then falls back to standings endpoint
