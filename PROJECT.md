@@ -1,7 +1,7 @@
 # AiTradr - Single Source of Truth (SSOT)
 
 **Last Updated:** 2025-01-XX (Current Session)  
-**Last Commit:** 9cf6121 - Implement Yahoo API remediation: modular architecture and SSOT
+**Last Commit:** [Latest] - Fix build error: replace cleanRedirectUri with redirectUri
 
 This document is the authoritative source for all project state, decisions, changes, TODOs, and unresolved issues. Always read from and write to this document.
 
@@ -406,6 +406,11 @@ fantasy-sports-trade-analyzer/
 ---
 
 ## Change Log
+
+### 2025-01-XX - Build Fix (Commit: 81a041f)
+- Fixed TypeScript build error in YahooSync.tsx
+- Replaced all references to `cleanRedirectUri` with `redirectUri`
+- Build now compiles successfully
 
 ### 2025-01-XX - API Remediation Implementation (Commit: 9cf6121)
 - Created modular Yahoo API architecture
