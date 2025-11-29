@@ -595,11 +595,55 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
       console.log(`📊 Team structure: teamArray[0] is an array with ${actualTeamArray.length} elements`)
     }
     
-    // Extract team data from actualTeamArray[0]
-    const teamData = extractYahooData<any>(actualTeamArray, 0)
-    if (!teamData?.team_key) {
+    // Extract team data - search through array for team_key and name
+    // Yahoo structure: [{team_key}, {team_id}, {name}, ...]
+    let teamKey: string | undefined
+    let teamName: string | undefined
+    let teamId: string | undefined
+    let teamUrl: string | undefined
+    let teamLogos: any = undefined
+    
+    for (const item of actualTeamArray) {
+      if (!item || typeof item !== 'object') continue
+      
+      if (item.team_key && !teamKey) {
+        teamKey = item.team_key
+      }
+      if (item.name && !teamName) {
+        teamName = item.name
+      }
+      if (item.team_id && !teamId) {
+        teamId = item.team_id
+      }
+      if (item.url && !teamUrl) {
+        teamUrl = item.url
+      }
+      if (item.team_logos && !teamLogos) {
+        teamLogos = item.team_logos
+      }
+    }
+    
+    if (!teamKey) {
       console.warn(`Skipping team at key ${key} - missing team_key`)
       return
+    }
+    
+    // Fallback to extractYahooData for backward compatibility
+    const teamData = extractYahooData<any>(actualTeamArray, 0) || {}
+    if (!teamData.team_key) {
+      teamData.team_key = teamKey
+    }
+    if (!teamData.name && teamName) {
+      teamData.name = teamName
+    }
+    if (!teamData.team_id && teamId) {
+      teamData.team_id = teamId
+    }
+    if (!teamData.url && teamUrl) {
+      teamData.url = teamUrl
+    }
+    if (!teamData.team_logos && teamLogos) {
+      teamData.team_logos = teamLogos
     }
     
     // Extract manager from actualTeamArray[1]
@@ -676,21 +720,27 @@ export async function getLeagueTeams(accessToken: string, leagueKey: string): Pr
       }
     }
     
+    const finalTeamName = teamData.name || teamName || 'Unknown Team'
     if (standingsFound) {
-      console.log(`📊 Team ${teamData.name}: Record ${wins}-${losses}-${ties}`)
+      console.log(`📊 Team ${finalTeamName}: Record ${wins}-${losses}-${ties}`)
     } else {
-      console.warn(`⚠️ Team ${teamData.name}: No standings data found. Searched through ${actualTeamArray.length} actualTeamArray elements.`)
-      console.warn(`   ActualTeamArray structure:`, JSON.stringify(actualTeamArray.slice(0, 5), null, 2).substring(0, 800))
+      console.warn(`⚠️ Team ${finalTeamName}: No standings data found. Searched through ${actualTeamArray.length} actualTeamArray elements.`)
     }
 
-    const teamId = teamData.team_id || teamData.team_key?.split('.')?.[3] || ''
+    const finalTeamId = teamData.team_id || teamId || teamData.team_key?.split('.')?.[3] || ''
+    const finalTeamUrl = teamData.url || teamUrl || ''
+    const finalLogoUrl = teamData.team_logos?.[0]?.team_logo?.url || teamData.team_logos?.[0]?.url || teamLogos?.[0]?.team_logo?.url || teamLogos?.[0]?.url || ''
+    
+    if (!teamName) {
+      console.warn(`⚠️ Team ${teamKey}: Could not find name in response, using fallback`)
+    }
     
     teams.push({
-      team_key: teamData.team_key,
-      team_id: teamId,
-      name: teamData.name || 'Unknown Team',
-      url: teamData.url || '',
-      logo_url: teamData.team_logos?.[0]?.team_logo?.url || teamData.team_logos?.[0]?.url,
+      team_key: teamData.team_key || teamKey,
+      team_id: finalTeamId,
+      name: finalTeamName,
+      url: finalTeamUrl,
+      logo_url: finalLogoUrl,
       manager_name: managerName,
       wins,
       losses,
