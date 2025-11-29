@@ -277,7 +277,17 @@ lib/yahoo/
 
 ### API Issues
 
-1. **Stat ID Mappings May Have Changed**
+1. **All Players Missing Stats** ⚠️ **CRITICAL - IN PRODUCTION**
+   - **Issue:** All 173 players showing 0 stats (confirmed in production logs Nov 28)
+   - **Root Cause:** Stats API returns data but parser not finding season stats in response
+   - **Status:** 🚧 Debugging - Added detailed logging to inspect response structure
+   - **Resolution:** 
+     - Removed strict coverage_value matching (accept any season stats)
+     - Added debug logging for first player in each batch
+     - Next sync will show actual API response structure
+   - **Impact:** All players have default value of 50.0, making trade analysis impossible
+
+2. **Stat ID Mappings May Have Changed**
    - **Issue:** Celebrini example shows G:24 A:14 but should be G:14 A:20
    - **Root Cause:** Stat IDs may have changed for 2025-26 season, or using wrong stat set
    - **Status:** 🚧 Being addressed by dynamic stat mapping implementation
