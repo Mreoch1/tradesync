@@ -143,57 +143,17 @@ Note: NEXT_PUBLIC_ variables are embedded at build time, so a rebuild is require
       return
     }
 
-    // Build redirect URI - MUST match exactly what's configured in Yahoo Developer Portal
-    // For production, ALWAYS use the hardcoded Netlify URL - never use window.location.origin
-    // This prevents tunnel URLs from being used in production
-    const isProduction = window.location.hostname === 'aitradr.netlify.app' || window.location.hostname.includes('netlify.app')
-    const redirectUri = isProduction 
-      ? 'https://aitradr.netlify.app/api/auth/yahoo/callback'
-      : `${window.location.origin}/api/auth/yahoo/callback`
+    // Use redirect URI from environment (validated on server startup)
+    // For client-side, we need to construct it from the current origin
+    // The server will validate it matches YAHOO_REDIRECT_URI
+    const redirectUri = `${window.location.origin}/api/auth/yahoo/callback`.replace(/\/+$/, '')
     
-    // Ensure no trailing slashes (Yahoo is strict about exact matching)
-    const cleanRedirectUri = redirectUri.replace(/\/+$/, '')
-    
-    // Validate redirect URI matches expected format
-    if (!cleanRedirectUri.startsWith('https://')) {
+    // Validate HTTPS
+    if (!redirectUri.startsWith('https://')) {
       const errorMsg = `OAuth requires HTTPS. Please access the app via HTTPS URL.
 
 Current URL: ${window.location.href}
-Redirect URI would be: ${cleanRedirectUri}
-
-For production, use: https://aitradr.netlify.app`
-      setError(errorMsg)
-      return
-    }
-    
-    // Log redirect URI for debugging
-    const expectedProductionUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
-    console.log('🔍 OAuth Configuration:')
-    console.log('  - Current URL:', window.location.href)
-    console.log('  - Window origin:', window.location.origin)
-    console.log('  - Hostname:', window.location.hostname)
-    console.log('  - Is production:', isProduction)
-    console.log('  - Redirect URI (calculated):', cleanRedirectUri)
-    console.log('  - Expected (production):', expectedProductionUri)
-    console.log('  - Match:', cleanRedirectUri === expectedProductionUri)
-    
-    // Warn if redirect URI doesn't match expected production URI
-    if (isProduction && cleanRedirectUri !== expectedProductionUri) {
-      const errorMsg = `Redirect URI mismatch detected!
-
-Calculated: ${cleanRedirectUri}
-Expected: ${expectedProductionUri}
-
-This will cause an INVALID_REDIRECT_URI error.
-
-To fix:
-1. Go to Yahoo Developer Portal: https://developer.yahoo.com/apps/
-2. Find your app and edit it
-3. Add this EXACT redirect URI: ${cleanRedirectUri}
-4. Click "Update" and wait 2-5 minutes
-5. Try again
-
-OR if you're in production, ensure you're accessing via: https://aitradr.netlify.app`
+Redirect URI: ${redirectUri}`
       setError(errorMsg)
       return
     }

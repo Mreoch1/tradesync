@@ -1220,21 +1220,8 @@ export function getAuthorizationUrl(
   redirectUri: string,
   state?: string
 ): string {
-  // Ensure client_id and redirect_uri are properly encoded
   const trimmedClientId = clientId.trim()
-  const trimmedRedirectUri = redirectUri.trim()
-  
-  console.log('🔍 getAuthorizationUrl - Client ID length:', trimmedClientId.length)
-  console.log('🔍 getAuthorizationUrl - Redirect URI:', trimmedRedirectUri)
-  
-  // Ensure redirect URI has no trailing slashes and matches exactly
-  const cleanRedirectUri = trimmedRedirectUri.replace(/\/+$/, '')
-  
-  // Validate redirect URI format
-  const expectedRedirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
-  if (cleanRedirectUri !== expectedRedirectUri) {
-    console.warn(`⚠️ Redirect URI mismatch! Expected: ${expectedRedirectUri}, Got: ${cleanRedirectUri}`)
-  }
+  const cleanRedirectUri = redirectUri.trim().replace(/\/+$/, '')
   
   const params = new URLSearchParams({
     client_id: trimmedClientId,
@@ -1245,32 +1232,6 @@ export function getAuthorizationUrl(
     ...(state && { state }),
   })
   
-  const authUrl = `https://api.login.yahoo.com/oauth2/request_auth?${params.toString()}`
-  
-  // Decode the redirect_uri from the URL to verify encoding
-  const urlObj = new URL(authUrl)
-  const decodedRedirectUri = urlObj.searchParams.get('redirect_uri')
-  
-  // Log all parameters being sent
-  console.log('🔍 getAuthorizationUrl - All OAuth Parameters:')
-  console.log('  - client_id:', trimmedClientId.substring(0, 30) + '...')
-  console.log('  - redirect_uri:', cleanRedirectUri)
-  console.log('  - response_type:', 'code')
-  console.log('  - scope:', 'fspt-r')
-  console.log('  - language:', 'en-us')
-  if (state) console.log('  - state:', state)
-  
-  console.log('🔍 getAuthorizationUrl - Full URL:', authUrl)
-  console.log('🔍 getAuthorizationUrl - Redirect URI being sent:', cleanRedirectUri)
-  console.log('🔍 getAuthorizationUrl - Redirect URI in URL (decoded):', decodedRedirectUri)
-  console.log('🔍 getAuthorizationUrl - Expected Redirect URI:', expectedRedirectUri)
-  console.log('🔍 getAuthorizationUrl - Match:', cleanRedirectUri === expectedRedirectUri)
-  console.log('🔍 getAuthorizationUrl - Client ID in URL:', urlObj.searchParams.get('client_id')?.substring(0, 30) + '...')
-  console.log('🔍 getAuthorizationUrl - Scope in URL:', urlObj.searchParams.get('scope'))
-  console.log('🔍 getAuthorizationUrl - Response type in URL:', urlObj.searchParams.get('response_type'))
-  console.log('🔍 getAuthorizationUrl - Client ID length:', trimmedClientId.length)
-  console.log('🔍 getAuthorizationUrl - Client ID matches expected:', trimmedClientId === 'dj0yJmk9TEo2TFg0MFR2dTk1JmQ9WVdrOWEwWkxNbmxYZFVvbWNHbzlNQT09JnM9Y29uc3VtZXJzZWNyZXQmc3Y9MCZ4PTU3')
-  
-  return authUrl
+  return `https://api.login.yahoo.com/oauth2/request_auth?${params.toString()}`
 }
 

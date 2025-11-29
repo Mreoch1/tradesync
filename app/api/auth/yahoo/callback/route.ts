@@ -7,56 +7,23 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getAccessToken } from '@/lib/yahooFantasyApi'
+import { YAHOO_REDIRECT_URI } from '@/lib/yahoo/config'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  
-  // Log ALL query parameters for debugging
-  const allParams: Record<string, string> = {}
-  searchParams.forEach((value, key) => {
-    allParams[key] = value
-  })
-  console.log('🔍 Callback - All query parameters:', JSON.stringify(allParams, null, 2))
-  console.log('🔍 Callback - Full URL:', request.nextUrl.toString())
   
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const error = searchParams.get('error')
   const errorDescription = searchParams.get('error_description')
-
-  // Determine if we're in production
-  // CRITICAL: In production, ALWAYS use hardcoded production URL - never use env vars or request origin
-  const isProduction = request.nextUrl.hostname === 'aitradr.netlify.app' || 
-                       request.nextUrl.hostname.includes('netlify.app') ||
-                       process.env.NETLIFY === 'true'
   
-  let baseUrl: string
-  if (isProduction) {
-    // Production: ALWAYS use the exact production URL - ignore env vars and request origin
-    // This prevents tunnel URLs from being used
-    baseUrl = 'https://aitradr.netlify.app'
-  } else {
-    // Local dev only: Use environment variable or request origin
-    baseUrl = process.env.YAHOO_REDIRECT_URI 
-      ? process.env.YAHOO_REDIRECT_URI.replace('/api/auth/yahoo/callback', '')
-      : request.nextUrl.origin
-  }
-  
-  // Ensure no trailing slash
-  baseUrl = baseUrl.replace(/\/+$/, '')
-  
-  console.log('Callback - Base URL:', baseUrl)
-  console.log('Callback - Request origin:', request.nextUrl.origin)
-  console.log('Callback - Host header:', request.headers.get('host'))
-  console.log('Callback - YAHOO_REDIRECT_URI env:', process.env.YAHOO_REDIRECT_URI)
-  console.log('Callback - Full request URL:', request.url)
-  console.log('Callback - Search params string:', request.nextUrl.search)
-  console.log('🔍 Callback - Query param keys:', Object.keys(allParams).join(', '))
+  // Extract base URL from redirect URI (remove /api/auth/yahoo/callback)
+  const baseUrl = YAHOO_REDIRECT_URI.replace('/api/auth/yahoo/callback', '')
 
   // Handle OAuth errors
   if (error) {
     const errorMsg = errorDescription || error
-    console.error('❌ OAuth error from Yahoo:', error, errorDescription)
+    console.error('[OAuth] Error from Yahoo:', error, errorDescription)
     const redirectUrl = new URL('/', baseUrl)
     redirectUrl.searchParams.set('yahoo_error', errorMsg)
     return NextResponse.redirect(redirectUrl.toString())
@@ -64,96 +31,29 @@ export async function GET(request: NextRequest) {
 
   // Validate authorization code
   if (!code) {
-    console.error('❌ No authorization code in callback')
-    console.error('❌ Callback URL:', request.nextUrl.toString())
-    console.error('❌ All query params:', Object.keys(allParams).length > 0 ? Object.keys(allParams).join(', ') : 'NONE')
-    console.error('❌ Query params object:', JSON.stringify(allParams))
-    console.error('❌ Has error param:', !!error)
-    console.error('❌ Error value:', error)
-    console.error('❌ Error description:', errorDescription)
-    console.error('❌ Full request URL:', request.url)
-    console.error('❌ Search string:', request.nextUrl.search)
+    const errorMsg = error
+      ? `Yahoo OAuth error: ${errorDescription || error}`
+      : 'No authorization code provided. This usually means the redirect URI does not match exactly what is configured in Yahoo Developer Portal.'
     
-    // Check if this is a redirect from Yahoo without parameters (redirect URI mismatch)
-    const hasAnyParams = Object.keys(allParams).length > 0
-    const isFromYahoo = request.headers.get('referer')?.includes('yahoo.com') || 
-                        request.headers.get('user-agent')?.includes('Yahoo')
-    
-    console.error('❌ Has any query params:', hasAnyParams)
-    console.error('❌ Referer header:', request.headers.get('referer'))
-    console.error('❌ User-Agent:', request.headers.get('user-agent'))
-    
-    // Provide more helpful error message
-    let errorMsg = 'No authorization code provided'
-    if (error) {
-      errorMsg = `Yahoo OAuth error: ${errorDescription || error}`
-    } else if (!hasAnyParams) {
-      errorMsg = `Yahoo redirected back but provided no parameters. This usually means the redirect URI does not match exactly.
-
-The redirect URI in your OAuth request must match EXACTLY what's configured in Yahoo Developer Portal.
-
-Expected: https://aitradr.netlify.app/api/auth/yahoo/callback
-
-Please verify:
-1. In Yahoo Developer Portal, the Redirect URI is exactly: https://aitradr.netlify.app/api/auth/yahoo/callback
-2. No trailing slashes
-3. Click "Update" to save changes
-4. Wait a few minutes for changes to propagate`
-    } else {
-      errorMsg = `No authorization code in callback. Received parameters: ${Object.keys(allParams).join(', ')}`
-    }
-    
+    console.error('[OAuth] No authorization code in callback')
     const redirectUrl = new URL('/', baseUrl)
     redirectUrl.searchParams.set('yahoo_error', errorMsg)
     return NextResponse.redirect(redirectUrl.toString())
   }
 
-  // Get OAuth credentials - verify they're set
+  // Get OAuth credentials
   const clientId = process.env.YAHOO_CLIENT_ID
   const clientSecret = process.env.YAHOO_CLIENT_SECRET
   
-  console.log('🔍 Server-side env check:')
-  console.log('  - YAHOO_CLIENT_ID:', clientId ? `Set (length: ${clientId.length})` : 'NOT SET')
-  console.log('  - YAHOO_CLIENT_SECRET:', clientSecret ? 'Set' : 'NOT SET')
-  console.log('  - YAHOO_REDIRECT_URI:', process.env.YAHOO_REDIRECT_URI || 'NOT SET')
-  
-  console.log('🔍 Token exchange - Client ID:', clientId ? `${clientId.substring(0, 20)}...` : 'NOT SET')
-  console.log('🔍 Token exchange - Client Secret:', clientSecret ? 'SET' : 'NOT SET')
-  
-  // Build redirect URI for token exchange - MUST match exactly what was sent in authorization request
-  // CRITICAL: In production, ALWAYS use hardcoded production URL - ignore env vars completely
-  let redirectUri: string
-  
-  if (isProduction) {
-    // Production: ALWAYS use the exact hardcoded production URL
-    // DO NOT use YAHOO_REDIRECT_URI env var in production - it might be set to a tunnel URL
-    redirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
-  } else if (process.env.YAHOO_REDIRECT_URI) {
-    // Local dev with env var: Use the env var
-    redirectUri = process.env.YAHOO_REDIRECT_URI.trim()
-  } else {
-    // Local dev: Reconstruct from baseUrl
-    redirectUri = `${baseUrl}/api/auth/yahoo/callback`
+  if (!clientId || !clientSecret) {
+    console.error('[OAuth] Missing OAuth credentials')
+    const redirectUrl = new URL('/', baseUrl)
+    redirectUrl.searchParams.set('yahoo_error', 'Yahoo OAuth credentials not configured')
+    return NextResponse.redirect(redirectUrl.toString())
   }
   
-  // Ensure no trailing slashes (Yahoo is strict)
-  redirectUri = redirectUri.replace(/\/+$/, '')
-  
-  const expectedRedirectUri = 'https://aitradr.netlify.app/api/auth/yahoo/callback'
-  
-  console.log('🔍 Token exchange - Base URL:', baseUrl)
-  console.log('🔍 Token exchange - Is Production:', isProduction)
-  console.log('🔍 Token exchange - Redirect URI (from env):', process.env.YAHOO_REDIRECT_URI)
-  console.log('🔍 Token exchange - Redirect URI (final):', redirectUri)
-  console.log('🔍 Token exchange - Expected Redirect URI:', expectedRedirectUri)
-  console.log('🔍 Token exchange - Match:', redirectUri === expectedRedirectUri)
-  
-  // Warn if redirect URI doesn't match expected
-  if (isProduction && redirectUri !== expectedRedirectUri) {
-    console.error(`❌ CRITICAL: Redirect URI mismatch in production! Expected: ${expectedRedirectUri}, Got: ${redirectUri}`)
-    console.error(`❌ This will cause INVALID_REDIRECT_URI error.`)
-    console.error(`❌ Please ensure YAHOO_REDIRECT_URI in Netlify is set to: ${expectedRedirectUri}`)
-  }
+  // Use single source of truth for redirect URI
+  const redirectUri = YAHOO_REDIRECT_URI
 
   if (!clientId || !clientSecret) {
     console.error('❌ Missing OAuth credentials')
@@ -164,32 +64,23 @@ Please verify:
 
   try {
     // Exchange authorization code for access token
-    console.log('🔄 Attempting token exchange with redirect URI:', redirectUri)
     const tokens = await getAccessToken(clientId, clientSecret, code, redirectUri)
 
-    // Redirect back to app with tokens in query params (hash doesn't work with server redirects)
-    // The frontend will extract tokens from query params and store them
-    // Use tunnel URL to ensure we redirect to HTTPS, not localhost
+    // Redirect back to app with tokens in query params
     const redirectUrl = new URL('/', baseUrl)
-    // Store tokens temporarily - encode as base64 to avoid URL length issues
     const tokensBase64 = Buffer.from(JSON.stringify(tokens)).toString('base64')
     redirectUrl.searchParams.set('yahoo_tokens', tokensBase64)
     if (state) {
       redirectUrl.searchParams.set('state', state)
     }
 
-    console.log('✅ Token exchange successful, redirecting back to app')
+    console.log('[OAuth] Token exchange successful')
     return NextResponse.redirect(redirectUrl.toString())
   } catch (error: any) {
-    console.error('❌ OAuth token exchange error:', error)
-    console.error('   Error message:', error.message)
-    console.error('   Redirect URI used:', redirectUri)
-    console.error('   Expected redirect URI:', 'https://aitradr.netlify.app/api/auth/yahoo/callback')
+    console.error('[OAuth] Token exchange error:', error.message)
     
     const redirectUrl = new URL('/', baseUrl)
-    // Preserve the full error message for INVALID_REDIRECT_URI
-    const errorMessage = error.message || 'Failed to exchange authorization code'
-    redirectUrl.searchParams.set('yahoo_error', errorMessage)
+    redirectUrl.searchParams.set('yahoo_error', error.message || 'Failed to exchange authorization code')
     return NextResponse.redirect(redirectUrl.toString())
   }
 }
