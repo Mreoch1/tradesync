@@ -1,6 +1,7 @@
 # AiTradr - Single Source of Truth (SSOT)
 
-**Last Updated:** 2025-01-XX (Current Session)
+**Last Updated:** 2025-01-XX (Current Session)  
+**Last Commit:** 9cf6121 - Implement Yahoo API remediation: modular architecture and SSOT
 
 This document is the authoritative source for all project state, decisions, changes, TODOs, and unresolved issues. Always read from and write to this document.
 
@@ -406,7 +407,7 @@ fantasy-sports-trade-analyzer/
 
 ## Change Log
 
-### 2025-01-XX - API Remediation Implementation
+### 2025-01-XX - API Remediation Implementation (Commit: 9cf6121)
 - Created modular Yahoo API architecture
 - Implemented single source of truth for OAuth redirect URI
 - Created unified response normalization utilities
