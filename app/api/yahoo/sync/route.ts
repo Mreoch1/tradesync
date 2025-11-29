@@ -183,6 +183,7 @@ export async function POST(request: NextRequest) {
 
         // Parse standings using dedicated parser (fixes 0-0-0 records issue)
         // This replaces the old standings extraction logic in getLeagueTeams
+        // Note: If standings fail, we continue - standings are nice-to-have, teams/players/stats are essential
         try {
           console.log(`[Standings] Parsing standings for ${yahooTeams.length} teams...`)
           yahooTeams = await parseStandings(accessToken, leagueKey, yahooTeams)
@@ -196,23 +197,29 @@ export async function POST(request: NextRequest) {
           )
           console.log(`[Standings] ${teamsWithStandings.length}/${yahooTeams.length} teams have non-zero records`)
         } catch (standingsError: any) {
-          // Fail-fast: standings are required for accurate team records
-          // If standings cannot be found, this indicates a data issue that needs investigation
-          console.error(`[Standings] Failed to parse standings:`, standingsError?.message)
-          console.error(`[Standings] This may indicate: league hasn't started, API structure changed, or data unavailable`)
-          // For now, log error but continue sync - teams will show 0-0-0
-          // In future, we may want to fail the sync entirely if standings are required
-          console.warn(`[Standings] Continuing sync - teams will show 0-0-0 records until standings are available`)
+          // Log error but continue - teams/players/stats are more important than standings
+          console.warn(`[Standings] Could not parse standings: ${standingsError?.message}`)
+          console.warn(`[Standings] Continuing sync - teams will show 0-0-0 records`)
         }
 
         // Get roster for each team with season
         // CRITICAL: Only call getTeamRoster once per team - it fetches both roster AND stats
         const getRoster = async (teamKey: string): Promise<YahooPlayer[]> => {
-          console.log(`📊 Fetching roster AND stats for team: ${teamKey} (season: ${leagueSeason || 'not specified'})`)
-          console.log(`📊 This is the ONLY stats fetch for this team - no duplicate calls`)
-          const roster = await getTeamRoster(accessToken, teamKey, undefined, leagueSeason)
-          console.log(`✅ Completed roster+stats fetch for team ${teamKey}: ${roster.length} players`)
-          return roster
+          try {
+            console.log(`[Roster] Fetching roster and stats for team: ${teamKey} (season: ${leagueSeason || 'not specified'})`)
+            const roster = await getTeamRoster(accessToken, teamKey, undefined, leagueSeason)
+            console.log(`[Roster] Team ${teamKey}: ${roster.length} players fetched`)
+            
+            // Log stats summary
+            const playersWithStats = roster.filter(p => p.player_stats && p.player_stats.stats && p.player_stats.stats.length > 0).length
+            console.log(`[Roster] Team ${teamKey}: ${playersWithStats}/${roster.length} players have stats`)
+            
+            return roster
+          } catch (rosterError: any) {
+            console.error(`[Roster] Failed to fetch roster for team ${teamKey}:`, rosterError?.message)
+            // Return empty array rather than failing entire sync
+            return []
+          }
         }
 
         // Parse teams into our format

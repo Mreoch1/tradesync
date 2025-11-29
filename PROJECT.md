@@ -430,12 +430,19 @@ fantasy-sports-trade-analyzer/
 
 ## Change Log
 
+### 2025-01-XX - Core Data Pulling Focus (Current)
+- Improved logging for teams, players, and stats fetching
+- Standings parsing is optional - sync continues even if standings fail
+- Core focus: Ensure teams, players, and stats are reliably pulled
+- Enhanced error handling for roster fetching (returns empty array on failure, doesn't break sync)
+- **Status:** Core data pulling verified and improved
+
 ### 2025-01-XX - Standings Parser Integration (Commit: 00962d9)
 - Integrated `parseStandings()` from `lib/yahoo/standings.ts` into sync route
 - Fixes production issue where all teams showed 0-0-0 records
 - Parser searches local team response first, then falls back to standings endpoint
-- Fail-fast error handling with detailed logging
-- **Status:** Ready for production testing
+- Standings are optional - sync continues if standings unavailable
+- **Status:** Integrated and ready for production testing
 
 ### 2025-01-XX - Build Fix (Commit: 81a041f)
 - Fixed TypeScript build error in YahooSync.tsx
